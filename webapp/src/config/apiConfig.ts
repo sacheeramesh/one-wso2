@@ -152,6 +152,27 @@ export const bankingServiceUrls = {
 export const parBackendUrl: string =
   window.config?.ONE_WSO2_PAR_BACKEND_URL ?? "";
 
+// The Lead Portal's evidence-attachment picker (ParLeadReviewPanel.tsx) is
+// the only caller — a plain OAuth client ID, not a backend URL, so it lives
+// here rather than in parServiceUrls.
+export const googleOAuthClientId: string =
+  window.config?.ONE_WSO2_PAR_GOOGLE_OAUTH_CLIENT_ID ?? "";
+// Optional — par-app's own useGoogleDrivePicker.ts never calls
+// PickerBuilder.setDeveloperKey either and works without it. Only needed if
+// Google's "API developer key is invalid" error shows up in practice.
+export const googlePickerApiKey: string =
+  window.config?.ONE_WSO2_PAR_GOOGLE_PICKER_API_KEY ?? "";
+
+// par-app's own admin-configurable rating names that trigger the Top 5%/20%
+// checkbox and the evidence-attachment requirement — real config, not
+// hardcoded constants, since Admin Portal → Configurations lets an admin
+// freely rename or remove entries from the org-wide parRatings list, and a
+// hardcoded trigger name would silently stop matching if that happened.
+export const top5p20pEnabledRating: string =
+  window.config?.ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING ?? "Successful";
+export const evidenceEnabledRating: string =
+  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvement";
+
 export const parServiceUrls = {
   // GET /employees/{workEmail} — par-app's OWN employee record, distinct
   // from people-app's. Carries `leadEmail: string?` — the exact field
@@ -277,6 +298,45 @@ export const parServiceUrls = {
   // shows the Meet link itself, only a "meeting scheduled" confirmation —
   // see ParScheduleF2fDialog.tsx.
   calendarScheduleF2f: () => `${parBackendUrl}/calendar/schedule-f2f`,
+
+  // ---- Admin Portal -------------------------------------------------------------
+  //
+  // Admin-gated server-side already (invokerDetails.isAdmin) — same backend
+  // as above, no separate deployment. Org-wide variants just drop the
+  // scoping param the Lead Portal builders require.
+
+  parCyclesByStatus: (status: "PENDING_QUOTA" | "OPEN" | "PENDING" | "CLOSED") =>
+    `${parBackendUrl}/par-cycles?status=${status}`,
+  parCycleCreate: () => `${parBackendUrl}/par-cycles`,
+  // Same resource edits cycle settings and drives OPEN/CLOSED transitions.
+  parCycleModify: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}`,
+  parGlobalConfig: () => `${parBackendUrl}/meta/configurations`,
+  parAdminTeams: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}/teams`,
+  parAdminSpecialRatingGroups: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/special-rating-groups`,
+  // GET returns SpecialRatingAllocation[] — reuse ParSpecialRatingAllocation,
+  // not ParSpecialRatingQuotaWithName (that one's POST-only, see types.ts).
+  parAdminQuotaGroups: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/special-rating-groups-quota`,
+  parRejectedReviews: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/rejected-reviews`,
+  parAllRatings: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}/par-ratings`,
+  parSyncEmployee: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/sync`,
+  // Restoring a rejected review reuses par360Review's PATCH above, called
+  // here on the reviewee's behalf by an admin — no separate endpoint.
+  // Distinct from parSchedule360Reminders above (a different resource,
+  // gated on isLeadInActiveParCycle, scoped to the caller's own reports).
+  parBulkReminder: (kind: "employee" | "lead" | "special-rating") =>
+    `${parBackendUrl}/reminders/schedule-${kind}-reminders`,
+  // GET every distinct legacy (pre-par-app) cycle, org-wide — the History
+  // tab's merged cycle list, admin-gated the same way as the per-employee
+  // legacy endpoint above.
+  legacyParHistoryCycles: () => `${parBackendUrl}/legacy-par-history-cycles`,
+  // GET every employee's legacy row for one cycle name — the History tab's
+  // legacy drill-down.
+  legacyParHistoryCyclesParticipants: (cycleName: string) =>
+    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service
@@ -346,6 +406,8 @@ export function isOpdBackendConfigured(): boolean {
 export const opdServiceUrls = {
   userInfo: `${opdBackendUrl}/user-info`,
   appData: `${opdBackendUrl}/app-data`,
+  // Finance-only: the whole analytics screen in one request.
+  dashboardSummary: `${opdBackendUrl}/dashboard-summary`,
   searchClaims: `${opdBackendUrl}/search-claims`,
   claims: `${opdBackendUrl}/claims`,
   claimDrafts: `${opdBackendUrl}/claim-drafts`,
@@ -389,6 +451,9 @@ export const ccServiceUrls = {
   transactionSummary: `${ccBackendUrl}/transactions/new-transaction-summary`,
   submittedByCategory: `${ccBackendUrl}/transactions/submitted-transaction-summary`,
   cardHolderCompliance: `${ccBackendUrl}/transactions/card-holder-compliance-summary`,
+  // Lead view: every lead's approval backlog, and one lead's team within it.
+  leadApprovalSummary: `${ccBackendUrl}/transactions/lead-approval-summary`,
+  leadTeamCardHolders: `${ccBackendUrl}/transactions/lead-team-card-holder-summary`,
   expenseTypes: `${ccBackendUrl}/configurations/expense-types`,
   subRegions: `${ccBackendUrl}/configurations/sub-regions`,
   productAndBusinessUnits: `${ccBackendUrl}/configurations/product-and-business-units`,
@@ -464,6 +529,85 @@ export const umtServiceUrls = {
   meta: `${umtBackendUrl}/meta`,
   // GET — aggregate update lifecycle and release-chunk build counts.
   updatesStats: `${umtBackendUrl}/update/stats`,
+  // POST — filtered, server-paginated update summaries.
+  updatesSearch: `${umtBackendUrl}/update/search`,
+  // POST — creates a new update (and, for a hotfix, a second cloned entity).
+  createUpdate: `${umtBackendUrl}/update`,
+  // GET — one update by its numeric id.
+  update: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}`,
+  // GET — existence/format check for one advisory id, used while typing in
+  // the Security Advisory step's Add modal. Saving the resulting list back
+  // reuses the plain `update(id)` PUT above — no dedicated save endpoint.
+  validateSecurityAdvisory: (advisoryId: string) =>
+    `${umtBackendUrl}/update/validate-security-advisory/${encodeURIComponent(advisoryId)}`,
+  // PUT — updates the worst-case estimate independently from general fields.
+  updateWorstCaseEstimate: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/worstCaseEstimate`,
+  // GET — audit trail for worst-case estimate changes.
+  updateWorstCaseEstimateLog: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/worstCaseEstimate/log`,
+  // GET — lifecycle state transition audit trail for an update.
+  updateLifecycleStateLog: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/lifecycleState/log`,
+  // Branch inspection and creation endpoints used by the update Branch tab.
+  updateBranches: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/branch`,
+  createUpdateBranch: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/updateBranch`,
+  createHotfixBranch: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixBranch`,
+  componentMaxUpdateLevel: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/componentMaxUpdateLevel`,
+  // GET — supplementary data displayed in the update View tab.
+  updateDependencies: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/dependency`,
+  updatePullRequestAnalysis: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysis`,
+  // GET — polled while PR analysis is QUEUED/PROCESSING.
+  updatePullRequestAnalysisStatus: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysisStatus`,
+  // POST (multipart) — uploads one manually-added file for PR analysis.
+  updatePullRequestAnalysisFile: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysis/file`,
+  updateProductAnalysis: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/productAnalysis`,
+  // PUT — replaces an update's product list (distinct from product-analysis
+  // results, which live at updateProductAnalysis above).
+  updateProducts: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/products`,
+  // GET — the admin-only Product Management screen's base product catalog,
+  // distinct from the per-update product lists above.
+  baseProducts: `${umtBackendUrl}/update/base-product`,
+  // POST — adds a base product (name/version/lead+ED email/FTP connection details).
+  createBaseProduct: `${umtBackendUrl}/update/product`,
+  // PUT — deprecates an existing base product by name+version.
+  deprecateBaseProduct: `${umtBackendUrl}/update/product/deprecate`,
+  // PUT — per-product description/instruction update (only these 3 keys are
+  // ever sent), distinct from updateProducts's whole-list replace above.
+  updateProductsDetails: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/products/details`,
+  // GET/PUT — per-product manual test-result review for the Testing step.
+  // PUT accepts exactly one product per call.
+  updateIntegrationTestStaging: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging`,
+  updateHotfixInfo: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixInfo`,
+  // POST subscribes the caller; DELETE removes the caller's subscription.
+  updateSubscription: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/subscribe`,
+  // PUT — moves an update to OnHold with a reason, from the View tab's
+  // action row (Development/PRAnalyzed/ProductAnalyzed only).
+  updateOnHold: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/onHold`,
+  // POST — records a "Duplicate" relationship between two updates, from the
+  // View tab's "Mark as Duplicate" action.
+  updateDependency: `${umtBackendUrl}/update/dependency`,
+  // POST — replaces an update's whole Public GitHub Issues list.
+  updateIssues: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/issue`,
+  // POST — replaces an update's whole Public Pull Requests list.
+  updatePublicPullRequests: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/publicPullRequest`,
+  // POST — replaces an update's whole Integration Test Pull Requests list.
+  updateTestPullRequests: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/testPullRequest`,
 };
 
 // ---- marketing-ops backend -------------------------------------------------
@@ -934,6 +1078,24 @@ export const csmUrl: string = window.config?.ONE_WSO2_CSM_URL ?? "";
 export function isCsmConfigured(): boolean {
   return Boolean(csmUrl);
 }
+
+// Infra Portal backend (infra-operations/apps/infra-portal/backend).
+// Same Choreo Bearer → x-jwt-assertion rewrite as leave. Empty string =
+// not configured; the placeholder (and later InfraShell) must not fire
+// requests. Strip trailing slashes so builders do not produce "//user-info".
+export const infraBackendUrl: string = (
+  window.config?.ONE_WSO2_INFRA_BACKEND_URL ?? ""
+).replace(/\/+$/, "");
+
+export function isInfraBackendConfigured(): boolean {
+  return Boolean(infraBackendUrl);
+}
+
+export const infraServiceUrls = {
+  // GET /user-info — privileges, name, workEmail, githubUsername.
+  // Callers not in employee/approver/admin groups get HTTP 403.
+  userInfo: `${infraBackendUrl}/user-info`,
+};
 
 export const promotionServiceUrls = {
   // GET /employee-info?employeeWorkEmail=<email> — returns the caller's

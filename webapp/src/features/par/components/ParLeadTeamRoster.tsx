@@ -46,10 +46,46 @@ import { useSend360Reminder } from "../api/useLeadReminders";
 import { useLeadRatingUpdate } from "../api/useLeadRatingUpdate";
 import { calculateCycleActiveStep } from "../util/parCycleActiveStep";
 import { resolveGridSelectedIds } from "../util/parGridSelection";
-import ParCompletionStatusCard from "./ParCompletionStatusCard";
 import ParCycleDatesStepper from "./ParCycleDatesStepper";
 import ParStatusChip from "./ParStatusChip";
+import ParCompletionKpiTile from "./ParCompletionKpiTile";
 import type { ParCycle, ParRatingMinimal, ParTeamSummary } from "../api/types";
+
+// Shared "done" vocabulary across employee/lead/360 status fields (mirrors
+// ParStatusChip's own COMPLETED_VALUES) — used for each row's
+// stage-completion count.
+const DONE_STATUSES = new Set(["SHARED", "SHARED_BLOCKED", "COMPLETED"]);
+
+// How many of the five review stages this employee has finished — the same
+// journey the roster used to spread across five unconnected chip columns,
+// now also a single completion bar under their name.
+function countCompletedStages(row: ParRatingMinimal): number {
+  let n = 0;
+  if (DONE_STATUSES.has(row.parEmployeeStatus)) n++;
+  if (DONE_STATUSES.has(row.par360ReviewStatus)) n++;
+  if (DONE_STATUSES.has(row.parLeadStatus)) n++;
+  if (row.parRating && row.parRating !== "NOT_ASSIGNED") n++;
+  if (row.parF2fStatus === "COMPLETED") n++;
+  return n;
+}
+
+// This row's own progress through the same five stages the columns to the
+// right break out individually — one glance at whether this person's
+// review is moving at all.
+function StageProgress({ row }: { row: ParRatingMinimal }) {
+  const done = countCompletedStages(row);
+  return (
+    <Box sx={{ width: 120, height: 4, borderRadius: 2, bgcolor: "action.hover", overflow: "hidden", mt: 0.5 }}>
+      <Box
+        sx={{
+          width: `${(done / 5) * 100}%`,
+          height: "100%",
+          bgcolor: done === 5 ? "success.main" : done === 0 ? "action.disabled" : "primary.main",
+        }}
+      />
+    </Box>
+  );
+}
 
 // Ports TeamSummary.tsx: one team's completion cards + member roster.
 // "Sync an Employee" (EmployeeSyncModal.tsx) isn't ported — source's own
@@ -167,50 +203,56 @@ export default function ParLeadTeamRoster({
       headerName: "Team Member",
       flex: 1.5,
       renderCell: (params) => (
-        <Box
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpenReview(params.row.parEmployeeEmail)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onOpenReview(params.row.parEmployeeEmail);
-            }
-          }}
-          sx={{ cursor: "pointer", display: "flex", alignItems: "center", height: "100%" }}
-        >
-          <Avatar
-            src={thumbnailByEmail.get(params.row.parEmployeeEmail) || undefined}
-            slotProps={{ img: { referrerPolicy: "no-referrer" } }}
-            sx={{ mr: 1.5, height: "2.2rem", width: "2.2rem" }}
-          />
-          <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {params.row.parEmployeeName}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                {params.row.parEmployeeEmail}
+        <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
+          <Box
+            role="button"
+            tabIndex={0}
+            aria-label={`Open review for ${params.row.parEmployeeName}`}
+            onClick={() => onOpenReview(params.row.parEmployeeEmail)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpenReview(params.row.parEmployeeEmail);
+              }
+            }}
+            sx={{ cursor: "pointer", display: "flex", alignItems: "center", width: "fit-content" }}
+          >
+            <Avatar
+              src={thumbnailByEmail.get(params.row.parEmployeeEmail) || undefined}
+              slotProps={{ img: { referrerPolicy: "no-referrer" } }}
+              sx={{ mr: 1.5, height: "2.2rem", width: "2.2rem" }}
+            />
+            <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600 }}>
+                {params.row.parEmployeeName}
               </Typography>
-              <Tooltip title="Copy Email" arrow>
-                <IconButton
-                  size="small"
-                  aria-label="Copy Email"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      await navigator.clipboard.writeText(params.row.parEmployeeEmail);
-                      showSuccess("Email copied");
-                    } catch (err) {
-                      showError(describeError(err));
-                    }
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <CopyIcon size={13} />
-                </IconButton>
-              </Tooltip>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: 11.5 }} color="text.secondary">
+                  {params.row.parEmployeeEmail}
+                </Typography>
+                <Tooltip title="Copy Email" arrow>
+                  <IconButton
+                    size="small"
+                    aria-label="Copy Email"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await navigator.clipboard.writeText(params.row.parEmployeeEmail);
+                        showSuccess("Email copied");
+                      } catch (err) {
+                        showError(describeError(err));
+                      }
+                    }}
+                  >
+                    <CopyIcon size={13} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
+          </Box>
+          <Box sx={{ ml: "2.95rem" }}>
+            <StageProgress row={params.row} />
           </Box>
         </Box>
       ),
@@ -219,12 +261,18 @@ export default function ParLeadTeamRoster({
       field: "parEmployeeStatus",
       headerName: "Employee PAR",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parEmployeeStatus} />,
     },
     {
       field: "par360ReviewStatus",
       headerName: "360° Feedback",
       flex: 0.9,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => (
         <ParStatusChip
           content={params.row.par360ReviewStatus}
@@ -239,24 +287,36 @@ export default function ParLeadTeamRoster({
       field: "parLeadStatus",
       headerName: "Lead's PAR",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parLeadStatus} />,
     },
     {
       field: "parRating",
       headerName: "Rating",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parRating ?? ""} />,
     },
     {
       field: "parSpecialRating",
       headerName: "Top 5%/20% Rating",
       flex: 0.9,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parSpecialRating ?? ""} />,
     },
     {
       field: "parF2fStatus",
       headerName: "F2F",
       flex: 0.6,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parF2fStatus} />,
     },
     {
@@ -264,6 +324,8 @@ export default function ParLeadTeamRoster({
       headerName: "",
       sortable: false,
       flex: 0.5,
+      display: "flex",
+      align: "center",
       renderCell: (params) => (
         <Tooltip title={params.row.parLeadStatus === "SHARED" ? "View" : "Review"} arrow>
           <IconButton onClick={() => onOpenReview(params.row.parEmployeeEmail)}>
@@ -304,30 +366,29 @@ export default function ParLeadTeamRoster({
         </Stack>
       </Stack>
 
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1.5 }}>
-          Completion Status
-        </Typography>
-        <Grid container spacing={4}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard
-              name="Employee PAR"
-              completed={team.summary.employeeParCompletedCount}
-              total={team.numberOfTeamMembers}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard
-              name="Lead's PAR"
-              completed={team.summary.leadsReviewCompletedCount}
-              total={team.numberOfTeamMembers}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard name="F2F" completed={team.summary.f2fCompletedCount} total={team.numberOfTeamMembers} />
-          </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="Employee PAR"
+            completed={team.summary.employeeParCompletedCount}
+            total={team.numberOfTeamMembers}
+          />
         </Grid>
-      </Card>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="Lead's PAR"
+            completed={team.summary.leadsReviewCompletedCount}
+            total={team.numberOfTeamMembers}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="F2F"
+            completed={team.summary.f2fCompletedCount}
+            total={team.numberOfTeamMembers}
+          />
+        </Grid>
+      </Grid>
 
       <Card variant="outlined" sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>

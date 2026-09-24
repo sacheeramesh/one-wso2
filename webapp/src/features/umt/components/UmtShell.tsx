@@ -15,7 +15,9 @@
 // under the License.
 
 import type { ReactNode } from "react";
-import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, CircularProgress, IconButton, Stack, Typography } from "@wso2/oxygen-ui";
+import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
+import { Link as RouterLink } from "react-router";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isUmtBackendConfigured } from "@config/apiConfig";
 import { useUmtGate } from "../api/useUmtGate";
@@ -35,9 +37,16 @@ import UmtLocked from "./UmtLocked";
 // mount only after the decision succeeds, so denied users make no feature calls.
 export default function UmtShell({
   title,
+  backTo,
+  requireAdmin = false,
   children,
 }: {
   title: string;
+  backTo?: string;
+  /** Page-level gate for UMT_ADMIN-only screens (e.g. Product Management). Hiding
+   * a rail item alone is not an authorization boundary, so admin-only pages
+   * must opt into this rather than relying on navigation alone. */
+  requireAdmin?: boolean;
   children: ReactNode;
 }) {
   const configured = isUmtBackendConfigured();
@@ -45,11 +54,18 @@ export default function UmtShell({
 
   return (
     <Box sx={{ display: "flex", flex: 1, flexDirection: "column", minHeight: 0 }}>
-      <Typography component="h1" variant="h5" sx={{ mb: 2.25, mt: 0 }}>
-        {title}
-      </Typography>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.25, mt: 0 }}>
+        {backTo && (
+          <IconButton component={RouterLink} to={backTo} size="small" aria-label="Back">
+            <ArrowLeftIcon size={18} />
+          </IconButton>
+        )}
+        <Typography component="h1" variant="h5" sx={{ m: 0 }}>
+          {title}
+        </Typography>
+      </Stack>
 
-      <UmtBody configured={configured} gate={gate}>
+      <UmtBody configured={configured} gate={gate} requireAdmin={requireAdmin} title={title}>
         {children}
       </UmtBody>
     </Box>
@@ -59,10 +75,14 @@ export default function UmtShell({
 function UmtBody({
   configured,
   gate,
+  requireAdmin,
+  title,
   children,
 }: {
   configured: boolean;
   gate: ReturnType<typeof useUmtGate>;
+  requireAdmin: boolean;
+  title: string;
   children: ReactNode;
 }) {
   // Metadata is shared by UMT workflows. Keeping its failure at this boundary
@@ -105,6 +125,17 @@ function UmtBody({
   // This is a completed authorization decision, not a request failure.
   if (!gate.isAuthorized) {
     return <UmtLocked />;
+  }
+
+  // A recognized UMT user/product-lead still isn't an admin. Kept distinct
+  // from UmtLocked above: this person does have UMT access, just not to this
+  // specific screen.
+  if (requireAdmin && !gate.isAdmin) {
+    return (
+      <Alert severity="warning" sx={{ mt: 1.5 }}>
+        {title} is limited to UMT administrators. Ask a UMT admin if you need access.
+      </Alert>
+    );
   }
 
   return (

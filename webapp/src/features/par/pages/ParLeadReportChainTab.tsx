@@ -21,6 +21,7 @@ import {
   Box,
   Breadcrumbs,
   Card,
+  Chip,
   DataGrid,
   Dialog,
   DialogContent,
@@ -107,16 +108,6 @@ export default function ParLeadReportChainTab() {
   if (!cycle) {
     return <Alert severity="info">Currently there is no ongoing PAR cycle</Alert>;
   }
-  if (reports.isLoading) {
-    return <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />;
-  }
-  if (reports.isError) {
-    return (
-      <ErrorNotice error={reports.error} onRetry={() => reports.refetch()} retrying={reports.isFetching}>
-        Couldn't load this report chain level.
-      </ErrorNotice>
-    );
-  }
 
   if (reviewEmployeeEmail) {
     return (
@@ -143,49 +134,52 @@ export default function ParLeadReportChainTab() {
       headerName: "Team Member",
       flex: 1.5,
       renderCell: (params) => (
-        <Box
-          role="button"
-          tabIndex={0}
-          onClick={() => setReviewEmployeeEmail(params.row.parEmployeeEmail)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setReviewEmployeeEmail(params.row.parEmployeeEmail);
-            }
-          }}
-          sx={{ cursor: "pointer", display: "flex", alignItems: "center", height: "100%" }}
-        >
-          <Avatar
-            src={thumbnailByEmail.get(params.row.parEmployeeEmail) || undefined}
-            slotProps={{ img: { referrerPolicy: "no-referrer" } }}
-            sx={{ mr: 1.5, height: "2.2rem", width: "2.2rem" }}
-          />
-          <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {params.row.parEmployeeName}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                {params.row.parEmployeeEmail}
+        <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
+          <Box
+            role="button"
+            tabIndex={0}
+            aria-label={`Open review for ${params.row.parEmployeeName}`}
+            onClick={() => setReviewEmployeeEmail(params.row.parEmployeeEmail)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setReviewEmployeeEmail(params.row.parEmployeeEmail);
+              }
+            }}
+            sx={{ cursor: "pointer", display: "flex", alignItems: "center", width: "fit-content" }}
+          >
+            <Avatar
+              src={thumbnailByEmail.get(params.row.parEmployeeEmail) || undefined}
+              slotProps={{ img: { referrerPolicy: "no-referrer" } }}
+              sx={{ mr: 1.5, height: "2.2rem", width: "2.2rem" }}
+            />
+            <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600 }}>
+                {params.row.parEmployeeName}
               </Typography>
-              <Tooltip title="Copy Email" arrow>
-                <IconButton
-                  size="small"
-                  aria-label="Copy Email"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      await navigator.clipboard.writeText(params.row.parEmployeeEmail);
-                      showSuccess("Email copied");
-                    } catch (err) {
-                      showError(describeError(err));
-                    }
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <CopyIcon size={13} />
-                </IconButton>
-              </Tooltip>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: 11.5 }} color="text.secondary">
+                  {params.row.parEmployeeEmail}
+                </Typography>
+                <Tooltip title="Copy Email" arrow>
+                  <IconButton
+                    size="small"
+                    aria-label="Copy Email"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await navigator.clipboard.writeText(params.row.parEmployeeEmail);
+                        showSuccess("Email copied");
+                      } catch (err) {
+                        showError(describeError(err));
+                      }
+                    }}
+                  >
+                    <CopyIcon size={13} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -195,12 +189,18 @@ export default function ParLeadReportChainTab() {
       field: "parEmployeeStatus",
       headerName: "Employee PAR",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parEmployeeStatus} />,
     },
     {
       field: "par360ReviewStatus",
       headerName: "360° Feedback",
       flex: 0.9,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => (
         <ParStatusChip
           content={params.row.par360ReviewStatus}
@@ -215,24 +215,36 @@ export default function ParLeadReportChainTab() {
       field: "parLeadStatus",
       headerName: "Lead's PAR",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parLeadStatus} />,
     },
     {
       field: "parRating",
       headerName: "Rating",
       flex: 0.8,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parRating ?? ""} />,
     },
     {
       field: "parSpecialRating",
       headerName: "Top 5%/20% Rating",
       flex: 0.9,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parSpecialRating ?? ""} />,
     },
     {
       field: "parF2fStatus",
       headerName: "F2F",
       flex: 0.6,
+      display: "flex",
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => <ParStatusChip content={params.row.parF2fStatus} />,
     },
     {
@@ -240,6 +252,8 @@ export default function ParLeadReportChainTab() {
       headerName: "",
       sortable: false,
       flex: 0.7,
+      display: "flex",
+      align: "center",
       renderCell: (params) => (
         <Stack direction="row">
           <Tooltip title={params.row.parLeadStatus === "SHARED" ? "View" : "Review"} arrow>
@@ -285,11 +299,9 @@ export default function ParLeadReportChainTab() {
 
       <Grid container spacing={2} sx={{ alignItems: "center" }}>
         <Grid size={{ xs: 12, md: 4 }}>
-          <Box display="flex" alignItems="center">
-            <Typography variant="h4" component="span">
-              {cycle.parCycleName}{" "}
-            </Typography>
-            <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
+            <Typography component="span" variant="caption" color="text.secondary">
               ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
             </Typography>
           </Box>
@@ -328,16 +340,23 @@ export default function ParLeadReportChainTab() {
       </Grid>
 
       <Card variant="outlined" sx={{ p: 2 }}>
-        <DataGrid.DataGrid
-          rows={rows}
-          columns={columns}
-          getRowId={(row) => row.parRatingId}
-          rowHeight={56}
-          disableRowSelectionOnClick
-          sx={{ border: "none" }}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20, 25]}
-        />
+        {reports.isError ? (
+          <ErrorNotice error={reports.error} onRetry={() => reports.refetch()} retrying={reports.isFetching}>
+            Couldn't load this report chain level.
+          </ErrorNotice>
+        ) : (
+          <DataGrid.DataGrid
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.parRatingId}
+            rowHeight={56}
+            loading={reports.isLoading}
+            disableRowSelectionOnClick
+            sx={{ border: "none" }}
+            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            pageSizeOptions={[10, 20, 25]}
+          />
+        )}
       </Card>
 
       <Dialog

@@ -20,6 +20,7 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   DataGrid,
   Dialog,
   DialogActions,
@@ -35,7 +36,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { CalendarIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { CalendarIcon, EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
@@ -45,8 +46,8 @@ import { useActiveParCycle } from "../api/useParData";
 import { useParTeams } from "../api/useLeadTeams";
 import { useSend360Reminder } from "../api/useLeadReminders";
 import { calculateTeamsCompletionTotals } from "../util/parTeamsSummary";
-import ParCompletionStatusCard from "../components/ParCompletionStatusCard";
 import ParCycleDatesStepper from "../components/ParCycleDatesStepper";
+import ParCompletionKpiTile from "../components/ParCompletionKpiTile";
 import ParEmptyState from "../components/ParEmptyState";
 import ParLeadTeamRoster from "../components/ParLeadTeamRoster";
 import ParLeadReviewTabs from "../components/ParLeadReviewTabs";
@@ -156,16 +157,28 @@ export default function ParLeadDirectReportsTab() {
       flex: 0.6,
       valueGetter: (_v, row) => `${row.summary.f2fCompletedCount}/${row.numberOfTeamMembers}`,
     },
+    {
+      field: "open",
+      headerName: "",
+      sortable: false,
+      flex: 0.3,
+      display: "flex",
+      align: "center",
+      // The row already opens on click; this just makes that visible.
+      renderCell: () => (
+        <Box sx={{ display: "flex", color: "text.secondary" }}>
+          <EyeIcon size={18} />
+        </Box>
+      ),
+    },
   ];
 
   return (
     <Stack spacing={2}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-        <Box>
-          <Typography variant="h5" component="span">
-            {cycle.parCycleName}{" "}
-          </Typography>
-          <Typography component="span" color="text.secondary">
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
+          <Typography component="span" variant="caption" color="text.secondary">
             ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
           </Typography>
         </Box>
@@ -181,30 +194,29 @@ export default function ParLeadDirectReportsTab() {
         </Stack>
       </Stack>
 
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1.5 }}>
-          Completion Status
-        </Typography>
-        <Grid container spacing={4}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard
-              name="Employee PAR"
-              completed={totals.totalEmployeeParComplete}
-              total={totals.totalEmployees}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard
-              name="Lead's PAR"
-              completed={totals.totalLeadReviewComplete}
-              total={totals.totalEmployees}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <ParCompletionStatusCard name="F2F" completed={totals.totalF2fComplete} total={totals.totalEmployees} />
-          </Grid>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="Employee PAR"
+            completed={totals.totalEmployeeParComplete}
+            total={totals.totalEmployees}
+          />
         </Grid>
-      </Card>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="Lead's PAR"
+            completed={totals.totalLeadReviewComplete}
+            total={totals.totalEmployees}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ParCompletionKpiTile
+            label="F2F"
+            completed={totals.totalF2fComplete}
+            total={totals.totalEmployees}
+          />
+        </Grid>
+      </Grid>
 
       <Card variant="outlined" sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>

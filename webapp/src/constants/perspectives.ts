@@ -20,6 +20,7 @@
 import { csmUrl, isCsmConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import {
+  Box as BoxIcon,
   CheckCheckIcon,
   ClipboardCheckIcon,
   DatabaseIcon,
@@ -28,6 +29,7 @@ import {
   LayoutDashboard,
   MegaphoneIcon,
   NetworkIcon,
+  RefreshCcw,
   SatelliteDishIcon,
   ScaleIcon,
   ShieldIcon,
@@ -37,15 +39,22 @@ import {
   UsersIcon,
   UsersRoundIcon,
   WalletIcon,
+  ServerIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { Capability, MenuApp } from "@constants/appMenu";
-import { FINANCE_PERSPECTIVE_APPS, ME_FINANCE_APPS } from "@constants/financeApps";
+import {
+  FINANCE_OVERVIEW_APPS,
+  FINANCE_PERSPECTIVE_APPS,
+  ME_FINANCE_APPS,
+} from "@constants/financeApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import { DUE_DILIGENCE_APPS } from "@constants/dueDiligenceApps";
 import { SECURITY_APPS } from "@constants/securityApps";
 import { ME_APPS } from "@constants/meApps";
+import { ME_PAR_APPS } from "@constants/parApps";
+import { INFRA_APPS } from "@constants/infraApps";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -135,43 +144,44 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
     icon: TicketIcon,
     path: "/people-ops/subscriptions/manage",
   },
-  // par-app, ported one screen at a time — see docs/ported-apps/par-app.md.
-  // `alwaysGroup` for the same reason Master Data below carries it: a named
-  // group rather than a bare leaf, since more items (F2F scheduling; the
-  // rest of Lead Portal) are still coming. Employee Portal isn't
-  // `requires: ["admin"]` — every employee has their own PAR, same as Org
-  // Chart and Subscriptions above. Spread in rather than filtered out, so
-  // with the flag off the entry does not exist at all.
-  ...(isPreviewEnabled("par")
-    ? [
-        {
-          id: "people-par",
-          label: "PAR",
-          icon: ClipboardCheckIcon,
-          alwaysGroup: true,
-          children: [
-            {
-              id: "par-employee-feedback",
-              label: "Employee Portal",
-              path: "/people-ops/performance",
-            },
-            // Note what is NOT here: `requires: ["lead"]`. one-wso2's generic
-            // "lead" capability is people-app privilege 993 — unrelated to
-            // par-app's own PAR-cycle-scoped isTeamLead, and not guaranteed to
-            // agree with it either way. SideRail asks useParIsTeamLead for
-            // this one instead (PAR_LEAD_PORTAL_ITEM_ID below), the same
-            // treatment Finance/Leave/Marketing Ops/Subscriptions already get
-            // for the identical reason. ParRequiresTeamLeadRoute is what
-            // actually enforces access at the route either way.
-            {
-              id: "par-lead-portal",
-              label: "Lead Portal",
-              path: "/people-ops/performance/lead",
-            },
-          ],
-        },
-      ]
-    : []),
+  // par-app's Lead and Admin Views — the halves of par-app that are about
+  // your reports and the org-wide cycle, not yourself (the employee side
+  // moved to the Me perspective, see parApps.ts). No `alwaysGroup`,
+  // deliberately, unlike Master Data below: the majority of people who can
+  // see this at all are a lead OR an admin, not both, so most of the time
+  // exactly one child is visible — SectionNode's own single-visible-child
+  // rule then collapses this straight to a "PAR" leaf pointing at it,
+  // matching the Employee side's own single-click nav under Me. Someone who
+  // is both (e.g. a team head who is also a People Ops admin) still gets
+  // both children visible at once, which is what keeps this a group rather
+  // than a leaf for them — same mechanism, no special-casing needed.
+  {
+    id: "people-par",
+    label: "PAR",
+    icon: ClipboardCheckIcon,
+    children: [
+      // Note what is NOT here: `requires: ["lead"]`. one-wso2's generic
+      // "lead" capability is people-app privilege 993 — unrelated to
+      // par-app's own PAR-cycle-scoped isTeamLead, and not guaranteed to
+      // agree with it either way. SideRail asks useParIsTeamLead for
+      // this one instead (PAR_LEAD_PORTAL_ITEM_ID below), the same
+      // treatment Finance/Leave/Marketing Ops/Subscriptions already get
+      // for the identical reason. ParRequiresTeamLeadRoute is what
+      // actually enforces access at the route either way.
+      {
+        id: "par-lead-portal",
+        label: "Lead View",
+        path: "/people-ops/performance/lead",
+      },
+      // Same treatment as Lead View above: gated via
+      // PAR_ADMIN_PORTAL_ITEM_ID / useParIsAdmin, not `requires`.
+      {
+        id: "par-admin-portal",
+        label: "Admin View",
+        path: "/people-ops/performance/admin",
+      },
+    ],
+  },
   {
     id: "people-active-employee-report",
     label: "Active Employees",
@@ -263,6 +273,9 @@ export const SUBSCRIPTION_ITEM_IDS: ReadonlySet<string> = new Set([
  */
 export const PAR_LEAD_PORTAL_ITEM_ID = "par-lead-portal";
 
+/** Same idea, for the Admin Portal — gated via useParIsAdmin. */
+export const PAR_ADMIN_PORTAL_ITEM_ID = "par-admin-portal";
+
 // Marketing Ops. Built from the registry now so the rail is ready, but the
 // perspective itself stays locked (`access: false` below) until Phase 1
 // (Utilities) lands — see "My Findings Marketing Ops.md" in the repo root.
@@ -315,7 +328,29 @@ const ME_SECTIONS: PerspectiveSection[] = [
   },
   ...appsToSections(ME_APPS),
   ...appsToSections(ME_FINANCE_APPS),
+  // par-app's employee portal — see docs/ported-apps/par-app.md.
+  ...appsToSections(ME_PAR_APPS),
 ];
+
+const UMT_SECTIONS: PerspectiveSection[] = [
+  { id: "umt-updates", label: "Updates", icon: RefreshCcw, path: "/umt/updates" },
+  // Admin-only. `requires` speaks the people-app capability vocabulary, which
+  // UMT's own numeric roles have nothing to do with — this is filtered by
+  // UMT_ADMIN_ITEM_IDS below instead, the same way Finance/Leave/Subscriptions
+  // items are (see the comment above SUBSCRIPTION_ITEM_IDS).
+  { id: "umt-products", label: "Product Management", icon: BoxIcon, path: "/umt/products" },
+];
+
+/**
+ * UMT rail ids whose visibility must be decided by UMT's own /update/user-info
+ * roles, not the people-app capability vocabulary `requires` speaks — the same
+ * shape of problem as SUBSCRIPTION_ITEM_IDS/FINANCE_ITEM_IDS/LEAVE_ITEM_IDS
+ * above. Product Management is UMT_ADMIN-only; reading that against people-app
+ * capabilities would show it to a people-app admin who isn't a UMT admin, and
+ * hide it from a UMT admin who isn't one. Whatever renders these sections must
+ * ask useUmtGate directly rather than reading `requires` for them.
+ */
+export const UMT_ADMIN_ITEM_IDS: ReadonlySet<string> = new Set(["umt-products"]);
 
 export interface PerspectiveDef {
   key: string;
@@ -388,6 +423,9 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/finance",
     forwardsToFirstItem: true,
     sections: [
+      // Overview first: what the numbers say comes before the work of acting on
+      // them, and it is the screen finance opens the perspective to read.
+      ...appsToSections(FINANCE_OVERVIEW_APPS),
       {
         id: "claim-approval",
         label: "Claim Approval",
@@ -432,6 +470,22 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: isCsmConfigured(),
     externalUrl: csmUrl || undefined,
   },
+  // Held behind a preview flag, whole perspective and all, until it's ready
+  // for production. With the flag off the entry does not exist, so the waffle,
+  // landing options, and favourites stay clean. Same shape as UMT above.
+  ...(isPreviewEnabled("infra")
+  ? [
+      {
+        key: "infra",
+        label: "Infra Portal",
+        icon: ServerIcon,
+        access: true,
+        path: "/infra",
+        externallyGated: true,
+        sections: appsToSections(INFRA_APPS),
+      },
+    ]
+  : []),
   // Marketing Ops — UNLOCKED. Ported so far: Utilities (UTM + Asset Name
   // generators and their Marketing Admin panels) and Ad Campaigns → Analytics.
   // Still in Marketing Ops itself: Email Workbench, Events, CRM Upload — those
@@ -501,9 +555,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/me",
     sections: ME_SECTIONS,
   },
-  // UMT currently exposes only its dashboard. An empty section list keeps the
-  // rail at Overview until the update, product, chunk and statistics routes are
-  // actually ported; UmtShell performs the service-owned role check at /umt.
+  // UmtShell performs the service-owned role check for all UMT pages.
   //
   // Held behind a preview flag, whole perspective and all, until it's ready for
   // production — not just `access: false`, because that would still leave a
@@ -520,7 +572,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
           externallyGated: true,
           access: true,
           path: "/umt",
-          sections: [],
+          sections: UMT_SECTIONS,
         },
       ]
     : []),
