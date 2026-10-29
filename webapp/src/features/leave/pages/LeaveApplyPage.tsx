@@ -42,6 +42,8 @@ import { employeeDisplayName } from "../util/employeeName";
 import EmployeeAvatar from "@features/my/my-team/components/EmployeeAvatar";
 import LeaveBalanceSummary from "../components/LeaveBalanceSummary";
 import LeaveDateField from "../components/LeaveDateField";
+import SickNoteField from "../components/SickNoteField";
+import { needsLeadApproval, needsSickNote, sickNoteProblem } from "../util/franceLeave";
 import {
   LEAVE_TYPE_ICON,
   LEAVE_TYPE_POLICY_KEY,
@@ -60,7 +62,7 @@ import {
   useLeaveEntitlement,
   useLeaveUserInfo,
 } from "../api/useLeaveData";
-import { useSubmitLeave, useValidateLeave } from "../api/useLeaveMutations";
+import { useSubmitLeave, useSubmitSickLeave, useValidateLeave } from "../api/useLeaveMutations";
 import { calendarDaysInclusive, formatNice, startOfYearIso, todayIso } from "../util/leaveDates";
 import {
   CONFIRMATION_PORTION_LABEL,
@@ -68,6 +70,8 @@ import {
   VALIDATION_MESSAGE,
   leaveTypeLabel,
   GENERIC_LABEL,
+  OTHER_AUTHORIZED_CONFIRMATION_NOTE,
+  OTHER_AUTHORIZED_SUBMIT_SUCCESS,
   PUBLIC_COMMENT_LABEL,
   PUBLIC_COMMENT_NOTE,
   SUBMIT_SUCCESS,
@@ -92,7 +96,8 @@ function ApplyForm() {
   const appConfig = useLeaveAppConfig();
   const employees = useLeaveEmployees();
   const validate = useValidateLeave();
-  const submit = useSubmitLeave();
+  const submitPlain = useSubmitLeave();
+  const submitSick = useSubmitSickLeave();
   const { showSuccess, showError, showWarning } = useNotifications();
 
   const today = todayIso();
@@ -105,6 +110,7 @@ function ApplyForm() {
   const [recipients, setRecipients] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [sickNote, setSickNote] = useState<File | null>(null);
 
   // Seed the default leave type from the employee's location once known.
   const location = userInfo.data?.location ?? null;
@@ -113,6 +119,23 @@ function ApplyForm() {
     // Only re-seed when location resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
+
+  // Only France + Sick needs a note. Drop the file when that stops being true,
+  // so a note picked for sick leave is never sent with another type.
+  const sickNoteRequired = needsSickNote(location, leaveType);
+  useEffect(() => {
+    if (!sickNoteRequired) setSickNote(null);
+  }, [sickNoteRequired]);
+  const maxBytes = appConfig.data?.sickNoteMaxBytes;
+  const contentTypes = appConfig.data?.sickNoteContentTypes;
+  // With no limits yet there is nothing to check the file against, so the
+  // form stays blocked rather than letting an unchecked file through.
+  const limitsLoaded = Boolean(maxBytes && contentTypes);
+  const sickNoteIssue =
+    sickNote && maxBytes && contentTypes ? sickNoteProblem(sickNote, maxBytes, contentTypes) : "";
+  const sickNoteReady = !sickNoteRequired || (limitsLoaded && sickNote !== null && sickNoteIssue === "");
+  // France sick leave posts through the multipart call; everything else is unchanged.
+  const submit = sickNoteRequired ? submitSick : submitPlain;
 
   // Which leave types this employee can pick, and (for the balance panel)
   // which of those are quota-tracked — both location-gated, matching
@@ -212,7 +235,8 @@ function ApplyForm() {
     Boolean(userInfo.data) &&
     // Mandatory recipients (lead + People Ops) come from appConfig; don't
     // let a submit go out without them if appConfig hasn't resolved yet.
-    Boolean(appConfig.data);
+    Boolean(appConfig.data) &&
+    sickNoteReady;
 
   // Anyone still on the books, minus the leavers. The backend is asked for
   // Active + Marked leaver + Left (it needs Left to resolve historical rows),
@@ -332,9 +356,9 @@ function ApplyForm() {
       comment,
       isPublicComment: isPublic,
     };
-    submit.mutate(payload, {
+    const options = {
       onSuccess: () => {
-        showSuccess(SUBMIT_SUCCESS);
+        showSuccess(needsLeadApproval(leaveType) ? OTHER_AUTHORIZED_SUBMIT_SUCCESS : SUBMIT_SUCCESS);
         // Reset to a clean single-day request — dates, type, portion and the
         // comment, exactly what GeneralLeave.tsx:150-155 clears.
         //
@@ -345,6 +369,7 @@ function ApplyForm() {
         // it hands back as optionalMails. One submit cleared the suggestions;
         // a second erased them for good.
         setComment("");
+        setSickNote(null);
         setPortion("full");
         setStartDate(today);
         setEndDate(today);
@@ -353,8 +378,10 @@ function ApplyForm() {
         const landing = historyPathAfterSubmit("general", gate.canSee);
         if (landing) navigate(landing);
       },
-      onError: (err) => showError(describeError(err)),
-    });
+      onError: (err: Error) => showError(describeError(err)),
+    };
+    if (sickNoteRequired && sickNote) submitSick.mutate({ payload, sickNote }, options);
+    else submitPlain.mutate(payload, options);
   };
 
   const confirmationBody = SUBMIT_CONFIRMATION.body({
@@ -366,6 +393,8 @@ function ApplyForm() {
         : `${formatNice(startDate)} – ${formatNice(endDate)}`,
     portionLabel: CONFIRMATION_PORTION_LABEL[portion],
   });
+
+  const confirmationNote = needsLeadApproval(leaveType) ? ` ${OTHER_AUTHORIZED_CONFIRMATION_NOTE}` : "";
 
   if (userInfo.isLoading) {
     return (
@@ -474,6 +503,18 @@ function ApplyForm() {
               rttEntitlement={rttEntitlement}
               location={location}
               isLoading={entitlementQuery.isLoading}
+            />
+          </Box>
+        )}
+
+        {sickNoteRequired && (
+          <Box sx={{ mb: 2 }}>
+            <SickNoteField
+              file={sickNote}
+              problem={sickNoteIssue}
+              maxBytes={maxBytes}
+              contentTypes={contentTypes}
+              onChange={setSickNote}
             />
           </Box>
         )}
@@ -647,6 +688,7 @@ function ApplyForm() {
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
             {confirmationBody}
+            {confirmationNote}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

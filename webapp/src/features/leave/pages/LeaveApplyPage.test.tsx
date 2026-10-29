@@ -32,6 +32,9 @@ const appConfigData = {
 };
 
 const state = { employeesLoading: false };
+// Upload limits arrive with the app config on a current backend; a test can drop them.
+const limits = { sickNoteMaxBytes: 5 * 1024 * 1024, sickNoteContentTypes: ["application/pdf", "image/jpeg", "image/png"] };
+const configState = { withLimits: true };
 
 const employeeList = [
   {
@@ -62,7 +65,9 @@ vi.mock("../api/useLeaveData", () => ({
     isPending: false,
     isError: false,
   }),
-  useLeaveAppConfig: () => ({ data: appConfigData, isPending: false, isError: false }),
+  useLeaveAppConfig: () => ({
+    data: configState.withLimits ? { ...appConfigData, ...limits } : appConfigData,
+    isPending: false, isError: false }),
   useLeaveEmployees: () => ({
     data: state.employeesLoading ? undefined : employeeList,
     // Both flags, as React Query reports them: a fetching query is pending AND
@@ -75,6 +80,7 @@ vi.mock("../api/useLeaveData", () => ({
   useLeaveEntitlement: () => ({ data: undefined, isPending: false, isError: false }),
 }));
 const submitMutate = vi.fn();
+const sickMutate = vi.fn();
 const validation = { workingDays: 1 as number };
 vi.mock("../api/useLeaveMutations", () => ({
   useValidateLeave: () => ({
@@ -90,6 +96,12 @@ vi.mock("../api/useLeaveMutations", () => ({
     isError: false,
     error: null,
   }),
+  useSubmitSickLeave: () => ({
+    mutate: sickMutate,
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
 }));
 vi.mock("../components/LeaveShell", () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -98,6 +110,8 @@ vi.mock("../components/LeaveBalanceSummary", () => ({ default: () => null }));
 
 beforeEach(() => {
   submitMutate.mockClear();
+  sickMutate.mockClear();
+  configState.withLimits = true;
   user.location = "Sri Lanka";
 });
 
@@ -582,5 +596,130 @@ describe("while the people list is still loading", () => {
     const field = screen.getByPlaceholderText("Add people to notify (optional)");
     expect(field).toBeEnabled();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+});
+
+// France leave types, the sick note and lead approval.
+describe("France leave on Apply", () => {
+  const pdf = () => new File(["note"], "note.pdf", { type: "application/pdf" });
+  const pick = (file: File) =>
+    fireEvent.change(screen.getByTestId("sick-note-input"), { target: { files: [file] } });
+
+  it("offers neither new type in Sri Lanka", () => {
+    show();
+    expect(screen.queryByText("Compassionate")).toBeNull();
+    expect(screen.queryByText("Other Authorized")).toBeNull();
+  });
+
+  it("offers both in France", () => {
+    user.location = "France";
+    show();
+    expect(screen.getByText("Compassionate")).toBeInTheDocument();
+    expect(screen.getByText("Other Authorized")).toBeInTheDocument();
+  });
+
+  it("France options appear once the location loads", () => {
+    user.location = null;
+    const view = show();
+    expect(screen.queryByText("Compassionate")).toBeNull();
+    expect(screen.queryByText("Other Authorized")).toBeNull();
+    user.location = "France";
+    view.rerender(
+      <MemoryRouter initialEntries={["/me/leave/apply/general"]}>
+        <QueryClientProvider client={new QueryClient()}>
+          <NotificationsProvider>
+            <Routes>
+              <Route path="/me/leave/apply/general" element={<LeaveApplyPage />} />
+            </Routes>
+          </NotificationsProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Compassionate")).toBeInTheDocument();
+    expect(screen.getByText("Other Authorized")).toBeInTheDocument();
+  });
+
+  it("shows no sick-note field outside France sick leave", () => {
+    show();
+    expect(screen.queryByTestId("sick-note-input")).toBeNull();
+  });
+
+  it("requires a valid file for France sick leave and submits through the sick-leave call", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    expect(screen.getByTestId("sick-note-input")).toBeInTheDocument();
+    const submit = await screen.findByRole("button", { name: /Submit Leave/ });
+    expect(submit).toBeDisabled();
+
+    pick(pdf());
+    await waitFor(() => expect(submit).toBeEnabled());
+    await u.click(submit);
+    await u.click(await screen.findByRole("button", { name: "Yes" }));
+    expect(submitMutate).not.toHaveBeenCalled();
+    expect(sickMutate).toHaveBeenCalledTimes(1);
+    expect(sickMutate.mock.calls[0][0].sickNote.name).toBe("note.pdf");
+    expect(sickMutate.mock.calls[0][0].payload.leaveType).toBe("sick");
+  });
+
+  it("shows the sick-note field for a half day too", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    await u.click(screen.getByRole("button", { name: "First half" }));
+    expect(screen.getByTestId("sick-note-input")).toBeInTheDocument();
+  });
+
+  it("rejects a file over the limit", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    const big = new File([new Uint8Array(6 * 1024 * 1024)], "big.pdf", { type: "application/pdf" });
+    pick(big);
+    expect(await screen.findByText("This file is larger than 5.0 MB.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Submit Leave/ })).toBeDisabled();
+  });
+
+  it("clears the file when the type changes away from sick", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    pick(pdf());
+    expect(await screen.findByText("note.pdf")).toBeInTheDocument();
+    await u.click(screen.getByText("Compassionate"));
+    await u.click(screen.getByText("Sick Leave"));
+    expect(screen.queryByText("note.pdf")).toBeNull();
+    expect(await screen.findByRole("button", { name: /Submit Leave/ })).toBeDisabled();
+  });
+
+  it("keeps Submit disabled while the upload limits are loading", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    configState.withLimits = false;
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    expect(screen.getByText("Loading upload limits…")).toBeInTheDocument();
+    expect(screen.queryByText(/0\.0 MB/)).toBeNull();
+    expect(await screen.findByRole("button", { name: /Submit Leave/ })).toBeDisabled();
+  });
+
+  it("says Other Authorized goes to the lead, and reports it sent", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Other Authorized"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
+    expect(await screen.findByText(/goes to your lead for approval/)).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(submitMutate).toHaveBeenCalled());
+    submitMutate.mock.calls[0][1].onSuccess();
+    expect(
+      await screen.findByText("Your request has been sent to your lead for approval."),
+    ).toBeInTheDocument();
   });
 });

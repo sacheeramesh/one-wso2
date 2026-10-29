@@ -65,6 +65,21 @@ export const noLeaveHistoryFor = (year: number) => `No leave history available f
  * the same event is worded two ways, and LeaveSabbaticalPage uses that one.
  */
 export const SUBMIT_SUCCESS = "Leave request submitted successfully!";
+/** Other Authorized is approved by the employee's lead, not auto-approved. */
+export const OTHER_AUTHORIZED_SUBMIT_SUCCESS = "Your request has been sent to your lead for approval.";
+export const OTHER_AUTHORIZED_CONFIRMATION_NOTE = "This request goes to your lead for approval.";
+
+/** The sick-note field on Apply (France sick leave only). */
+export const SICK_NOTE_COPY = {
+  title: "Sick note",
+  loadingLimits: "Loading upload limits…",
+  chooseFile: "Choose file",
+  changeFile: "Change file",
+  remove: "Remove",
+  /** `maxMb` is already formatted, e.g. "5.0". */
+  help: (maxMb: string): string =>
+    `A sick note is required for sick leave. Upload a PDF, JPG or PNG file of up to ${maxMb} MB.`,
+} as const;
 export const SUBMIT_FAILED_FALLBACK = "Failed to submit leave request. Please try again.";
 
 /** `config/constant.ts:17-43`. */
