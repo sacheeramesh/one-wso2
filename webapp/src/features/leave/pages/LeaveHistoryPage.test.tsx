@@ -125,10 +125,15 @@ describe("My history", () => {
       leave({ numberOfDays: 2 }),
       leave({ status: "PENDING", numberOfDays: 1 }),
       leave({ status: "CANCELLED", numberOfDays: 3 }),
+      leave({ leaveType: "annual", numberOfDays: 4 }),
+      leave({ leaveType: "annual", status: "REJECTED", numberOfDays: 5 }),
     ];
     render(<GeneralHistoryTab />);
+    // Per type: casual 2 approved + 1 pending, annual 4 (the rejected 5 and the
+    // cancelled 3 add nowhere). Total renders as there are two groups.
     expect(screen.getByText("Casual 3 days")).toBeTruthy();
-    expect(screen.queryByText(/6 days|9 days/)).toBeNull();
+    expect(screen.getByText("Annual 4 days")).toBeTruthy();
+    expect(screen.getByText("Total: 7 days")).toBeTruthy();
   });
 
   it("groups sabbatical history by status with rejected and cancelled last", () => {

@@ -90,9 +90,9 @@ export default function GeneralHistoryTab() {
 /**
  * Which dimension the chips above the cards group by, per tab.
  *
- * Whichever one is not constant. General leave is all one status — the backend
- * creates it already approved (service.bal:539) — so leave type is the only
- * thing that varies. Sabbaticals are all one type and are created pending
+ * Whichever one is not constant. General leave varies mostly by leave type, so
+ * it groups by type (Other Authorized can also be pending or rejected, but
+ * the chips there show counted days only). Sabbaticals are all one type and are created pending
  * (sabbatical_leave.bal:158) until a lead acts on them, so there status is what
  * varies and a single "Sabbatical 30 days" chip would hide the part still
  * waiting on someone.
@@ -149,11 +149,10 @@ export function HistoryBody({
   // Still a sum of the cards below rather than a balance: the balance applies
   // the server's own `policyAdjustedLeave`, which these do not model.
   //
-  // Only the Sabbatical tab can show a pending row, so only its total can
-  // include one: the backend creates general leave already approved
-  // (service.bal:539) and sabbaticals pending (sabbatical_leave.bal:158), which
-  // is why the source has an Approve screen for sabbaticals and none for
-  // general leave.
+  // Pending rows are possible on both tabs: sabbaticals and Other Authorized
+  // are created pending until a lead decides, while the other general types are
+  // created already approved (service.bal:539). Pending days count toward the
+  // totals; rejected and cancelled days never do.
   //
   // Ordered by `leaveCategory` rather than by arrival, so the chips keep the
   // same order from one year to the next instead of following whatever order
@@ -358,27 +357,27 @@ function LeaveCard({ leave, onCancel }: { leave: DatabaseLeave; onCancel: () => 
       </Box>
 
       {cancelOffered && (
-      <Tooltip title={cancellable ? "Cancel this leave" : HISTORY_CARD_COPY.cancelPastWindow}>
-        <span>
-          <IconButton
-            size="small"
-            aria-label="Cancel leave"
-            disabled={!cancellable}
-            onClick={onCancel}
-            sx={{
-              width: 26,
-              height: 26,
-              border: 1,
-              borderColor: "divider",
-              borderRadius: 0.75,
-              color: "text.secondary",
-              "&:hover": { color: "error.main", borderColor: "error.main" },
-            }}
-          >
-            <TrashIcon />
-          </IconButton>
-        </span>
-      </Tooltip>
+        <Tooltip title={cancellable ? "Cancel this leave" : HISTORY_CARD_COPY.cancelPastWindow}>
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Cancel leave"
+              disabled={!cancellable}
+              onClick={onCancel}
+              sx={{
+                width: 26,
+                height: 26,
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 0.75,
+                color: "text.secondary",
+                "&:hover": { color: "error.main", borderColor: "error.main" },
+              }}
+            >
+              <TrashIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
       )}
     </Card>
   );

@@ -374,11 +374,13 @@ describe("a lead's decision", () => {
 
     result.current.mutate({ id: 7, action: "approve" });
     await waitFor(() => expect(requests).toHaveLength(1));
-    expect(requests[0]).toMatchObject({ url: "https://leave.test/leaves/7/approve", body: {} });
+    expect(requests[0].url).toBe("https://leave.test/leaves/7/approve");
+    expect(requests[0].body).toEqual({});
 
     result.current.mutate({ id: 7, action: "reject", reason: "Busy week" });
     await waitFor(() => expect(requests).toHaveLength(2));
-    expect(requests[1]).toMatchObject({ url: "https://leave.test/leaves/7/reject", body: { reason: "Busy week" } });
+    expect(requests[1].url).toBe("https://leave.test/leaves/7/reject");
+    expect(requests[1].body).toEqual({ reason: "Busy week" });
 
     result.current.mutate({ id: 7, action: "reject" });
     await waitFor(() => expect(requests).toHaveLength(3));

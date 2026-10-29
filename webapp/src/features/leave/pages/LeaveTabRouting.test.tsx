@@ -433,10 +433,13 @@ describe("reaching a screen by its URL", () => {
 
 // Sick notes are confidential: People Ops with the sick-note role only.
 describe("the sick notes report", () => {
-  it("a sick-note reader lands on the sick notes report", async () => {
-    state.allow = new Set(["leave-sick-notes"]);
-    show();
+  // Apply is open to everyone, so a 321 holder lands on Apply, not here; the
+  // report is reached through Reports, or by URL.
+  it("a sick-note reader can open the sick notes report by URL", async () => {
+    state.allow = new Set(["leave-apply", "leave-reports-general", "leave-sick-notes"]);
+    show("/me/leave/reports/sick-notes");
     expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/reports/sick-notes");
+    expect(screen.getByRole("link", { name: "Sick notes" })).toHaveAttribute("aria-current", "page");
   });
 
   it("a lead without the role cannot open it by URL", async () => {

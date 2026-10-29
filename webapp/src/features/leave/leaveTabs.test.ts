@@ -74,8 +74,9 @@ describe("the shape of the Leave app", () => {
     }
   });
 
-  // General leave is created already approved, so there is no general approve
-  // step for anyone. Approvals offers the two kinds that DO need a decision.
+  // Ordinary general leave is created already approved, so there is no general
+  // approve step for anyone. Approvals offers the two kinds that DO need a
+  // decision: sabbatical and Other Authorized.
   it("offers Approvals and Approval history for sabbatical and Other Authorized", () => {
     for (const segment of ["approvals", "approval-history"]) {
       const tab = leaveTab(segment)!;

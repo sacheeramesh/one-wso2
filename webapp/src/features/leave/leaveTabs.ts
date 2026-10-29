@@ -134,7 +134,7 @@ export const LEAVE_TABS: readonly LeaveTabDef[] = [
         // but cannot decide one.
         gateId: "leave-approve",
         subtitle:
-          "Sabbatical requests from your team wait for your decision. General leave is approved the moment it is submitted.",
+          "Sabbatical requests from your team wait for your decision. Other Authorized requests have their own tab.",
       },
       {
         kind: "other-authorized",

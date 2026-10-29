@@ -70,7 +70,9 @@ export default function LeavePage() {
 }
 
 /**
- * General | Sabbatical, for the tabs that offer both.
+ * The kind toggle (General | Sabbatical, Sabbatical | Other Authorized, or
+ * General | Sabbatical | Sick notes under Reports), for tabs that offer more
+ * than one kind.
  *
  * Links rather than buttons, for the same reason RoutedTabs uses them: the
  * choice lives in the URL, so it survives a refresh, is shareable, and comes
