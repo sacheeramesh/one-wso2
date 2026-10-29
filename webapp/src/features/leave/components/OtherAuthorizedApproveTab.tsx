@@ -17,10 +17,15 @@
  */
 
 import { useState } from "react";
+import type { DatabaseLeave } from "../api/leaveTypes";
 import {
   Alert,
   Button,
   Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Skeleton,
   Stack,
   Table,
@@ -46,7 +51,9 @@ import { HeadCell } from "./SabbaticalTable";
 // sends no reason; rejecting needs one, which the backend emails to the
 // applicant. Mirrors the standalone app's OtherAuthorizedApproveTab.
 export default function OtherAuthorizedApproveTab() {
-  const [rejecting, setRejecting] = useState<number | null>(null);
+  // The request being decided and how. Kept open until the call succeeds, so a
+  // refused decision leaves the lead's typed reason where it was.
+  const [target, setTarget] = useState<{ leave: DatabaseLeave; approving: boolean } | null>(null);
   const approve = useApproveLeave();
   const qc = useQueryClient();
   const { showSuccess, showError } = useNotifications();
@@ -69,12 +76,14 @@ export default function OtherAuthorizedApproveTab() {
 
   const decide = (id: number, action: "approve" | "reject", reason?: string) => {
     approve.mutate(reason ? { id, action, reason } : { id, action }, {
-      onSuccess: () =>
+      onSuccess: () => {
         showSuccess(
           action === "approve"
             ? SnackMessage.success.approveLeaveMessage
             : SnackMessage.success.rejectLeaveMessage,
-        ),
+        );
+        setTarget(null);
+      },
       onError: (err) => {
         showError(describeError(err));
         // The request may have been decided elsewhere, so the list on screen
@@ -133,7 +142,7 @@ export default function OtherAuthorizedApproveTab() {
                       size="small"
                       variant="contained"
                       disabled={approve.isPending}
-                      onClick={() => decide(lv.id, "approve")}
+                      onClick={() => setTarget({ leave: lv, approving: true })}
                     >
                       {COPY.approve}
                     </Button>
@@ -142,7 +151,7 @@ export default function OtherAuthorizedApproveTab() {
                       variant="outlined"
                       color="error"
                       disabled={approve.isPending}
-                      onClick={() => setRejecting(lv.id)}
+                      onClick={() => setTarget({ leave: lv, approving: false })}
                     >
                       {COPY.reject}
                     </Button>
@@ -154,16 +163,39 @@ export default function OtherAuthorizedApproveTab() {
         </Table>
       </Card>
 
-      {rejecting !== null && (
+      {target && !target.approving && (
         <RejectReasonDialog
           open
-          onCancel={() => setRejecting(null)}
-          onConfirm={(reason) => {
-            const id = rejecting;
-            setRejecting(null);
-            decide(id, "reject", reason);
-          }}
+          busy={approve.isPending}
+          onCancel={() => setTarget(null)}
+          onConfirm={(reason) => decide(target.leave.id, "reject", reason)}
         />
+      )}
+      {target?.approving && (
+        <Dialog open onClose={approve.isPending ? undefined : () => setTarget(null)} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>{COPY.approveDialog.title}</DialogTitle>
+          <DialogContent dividers>
+            <Typography sx={{ fontSize: 13.5 }}>
+              {COPY.approveDialog.body(
+                target.leave.email,
+                `${isoDay(target.leave.startDate)} – ${isoDay(target.leave.endDate)}`,
+              )}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button size="small" onClick={() => setTarget(null)} disabled={approve.isPending}>
+              {COPY.approveDialog.cancel}
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={approve.isPending}
+              onClick={() => decide(target.leave.id, "approve")}
+            >
+              {approve.isPending ? COPY.working : COPY.approveDialog.confirm}
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </>
   );

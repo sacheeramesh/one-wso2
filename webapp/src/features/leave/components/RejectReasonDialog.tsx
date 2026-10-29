@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   Button,
   Dialog,
@@ -38,11 +38,18 @@ export default function RejectReasonDialog({
   open,
   onCancel,
   onConfirm,
+  busy = false,
 }: {
   open: boolean;
   onCancel: () => void;
   onConfirm: (reason: string) => void;
+  /** A decision is in flight: the text stays, and nothing can be sent twice. */
+  busy?: boolean;
 }) {
+  const uid = useId();
+  const titleId = `${uid}-title`;
+  const counterId = `${uid}-counter`;
+  const fieldId = `${uid}-field`;
   const [reason, setReason] = useState("");
   // The error appears once they have typed or tried, not on a fresh dialog.
   const [touched, setTouched] = useState(false);
@@ -57,12 +64,25 @@ export default function RejectReasonDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>{COPY.title}</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={busy ? undefined : onCancel}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby={titleId}
+    >
+      <DialogTitle id={titleId} sx={{ fontSize: 17, fontWeight: 700 }}>{COPY.title}</DialogTitle>
       <DialogContent dividers>
         <Typography sx={{ fontSize: 13, mb: 1.5 }}>{COPY.body}</Typography>
         <TextField
           autoFocus
+          id={fieldId}
+          disabled={busy}
+          slotProps={{
+            htmlInput: {
+              "aria-describedby": showProblem ? `${fieldId}-helper-text ${counterId}` : counterId,
+            },
+          }}
           multiline
           minRows={3}
           fullWidth
@@ -75,16 +95,16 @@ export default function RejectReasonDialog({
           error={showProblem}
           helperText={showProblem ? problem : undefined}
         />
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.5, textAlign: "right" }}>
+        <Typography id={counterId} sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.5, textAlign: "right" }}>
           {COPY.counter(reason.trim().length, REJECTION_REASON_MAX)}
         </Typography>
       </DialogContent>
       <DialogActions>
-        <Button size="small" onClick={onCancel}>
+        <Button size="small" onClick={onCancel} disabled={busy}>
           {COPY.cancel}
         </Button>
-        <Button size="small" variant="contained" color="error" onClick={submit}>
-          {COPY.confirm}
+        <Button size="small" variant="contained" color="error" onClick={submit} disabled={busy}>
+          {busy ? OTHER_AUTHORIZED_APPROVE.working : COPY.confirm}
         </Button>
       </DialogActions>
     </Dialog>

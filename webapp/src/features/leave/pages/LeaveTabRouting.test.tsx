@@ -321,6 +321,30 @@ describe("a route guard whose own gate has not answered yet", () => {
   });
 });
 
+// LeaveTabIndex with nothing open to the visitor hands off to the route guard.
+describe("a tab index with no kind the visitor may open", () => {
+  it("redirects a non-lead on bare approvals to what they may see", async () => {
+    state.allow = new Set(["leave-apply"]);
+    show("/me/leave/approvals");
+    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/apply/general");
+  });
+
+  it("says so when there is nowhere to send them", async () => {
+    state.allow = new Set();
+    show("/me/leave/approvals");
+    expect(await screen.findByText(/isn't available for your role/)).toBeInTheDocument();
+  });
+
+  it("renders nothing while the gate is still resolving", () => {
+    state.isResolving = true;
+    state.allow = new Set();
+    show("/me/leave/approvals");
+    expect(screen.getByTestId("url")).toHaveTextContent("/me/leave/approvals");
+    expect(screen.queryByText(/isn't available for your role/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("path")).not.toBeInTheDocument();
+  });
+});
+
 describe("the kind toggle", () => {
   // Links, not buttons: the kind lives in the URL, so it survives a refresh,
   // is shareable, and comes back with the Back button.

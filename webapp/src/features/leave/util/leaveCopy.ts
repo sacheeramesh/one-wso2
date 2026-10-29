@@ -108,6 +108,14 @@ export const OTHER_AUTHORIZED_APPROVE = {
   approve: "Approve",
   reject: "Reject",
   working: "Working…",
+  approveDialog: {
+    title: "Approve this request?",
+    body: (email: string, dateRange: string) =>
+      `This will approve the Other Authorized leave for ${email} (${dateRange}). ` +
+      "The team is emailed and a calendar invite is sent.",
+    cancel: "Cancel",
+    confirm: "Yes, Approve",
+  },
   rejectDialog: {
     title: "Reject this request?",
     body: "The reason is emailed to the employee.",

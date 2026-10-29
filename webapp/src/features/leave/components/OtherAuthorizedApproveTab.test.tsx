@@ -115,10 +115,51 @@ describe("OtherAuthorizedApproveTab", () => {
     expect(screen.getByText(/day/i, { selector: "td" })).toBeInTheDocument();
   });
 
-  it("approves without a reason", async () => {
+  it("asks before approving, naming the employee and dates, then posts no reason", async () => {
     show(<OtherAuthorizedApproveTab />);
     await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/anna@wso2\.com/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/2026-11-02 – 2026-11-03/)).toBeInTheDocument();
+    expect(approveMutate).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Yes, Approve" }));
     expect(approveMutate).toHaveBeenCalledWith({ id: 7, action: "approve" });
+  });
+
+  it("posts nothing when the approval is cancelled", async () => {
+    show(<OtherAuthorizedApproveTab />);
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(approveMutate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the reject dialog and the typed reason when the decision is refused", async () => {
+    state.fail = true;
+    show(<OtherAuthorizedApproveTab />);
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.type(within(dialog).getByRole("textbox"), "Not covered");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reject" }));
+    expect(showError).toHaveBeenCalledWith("This request is no longer pending.");
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["leaves"] });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByRole("textbox")).toHaveValue("Not covered");
+  });
+
+  it("closes the reject dialog once the decision succeeds", async () => {
+    show(<OtherAuthorizedApproveTab />);
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await userEvent.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Not covered");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reject" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("labels the reject dialog by its title and ties the counter to the field", async () => {
+    show(<OtherAuthorizedApproveTab />);
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject this request?" });
+    const field = within(dialog).getByRole("textbox");
+    expect(field).toHaveAccessibleDescription(/0 \/ 500/);
   });
 
   it("refuses a blank reason inline and sends nothing", async () => {
@@ -155,6 +196,7 @@ describe("OtherAuthorizedApproveTab", () => {
     state.fail = true;
     show(<OtherAuthorizedApproveTab />);
     await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, Approve" }));
     expect(showError).toHaveBeenCalledWith("This request is no longer pending.");
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["leaves"] });
   });
