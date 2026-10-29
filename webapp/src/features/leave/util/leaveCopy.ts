@@ -15,6 +15,7 @@
 // under the License.
 
 import type { LeaveType } from "../api/leaveTypes";
+import { CANCEL_WINDOW_DAYS } from "./franceLeave";
 
 // User-visible copy, transcribed from the leave-app.
 //
@@ -55,7 +56,7 @@ export const HISTORY_CARD_COPY = {
   rejectionReason: (reason: string) => `Reason: ${reason}`,
   downloadSickNote: "Download sick note",
   sickNoteDeleted: (date: string) => `Sick note deleted on ${date}`,
-  cancelPastWindow: "Past the 30-day cancellation window",
+  cancelPastWindow: `Past the ${CANCEL_WINDOW_DAYS}-day cancellation window`,
 } as const;
 
 /** `LeaveHistory.tsx:151`. */
@@ -81,9 +82,9 @@ export const OTHER_AUTHORIZED_CONFIRMATION_NOTE = "This request goes to your lea
 export const SICK_NOTE_COPY = {
   title: "Sick note",
   loadingLimits: "Loading upload limits…",
-  chooseFile: "Choose file",
-  changeFile: "Change file",
-  remove: "Remove",
+  chooseFile: "Choose sick note file",
+  changeFile: "Change sick note file",
+  remove: "Remove sick note",
   /** `maxMb` is already formatted, e.g. "5.0". */
   help: (maxMb: string): string =>
     `A sick note is required for sick leave. Upload a PDF, JPG or PNG file of up to ${maxMb} MB.`,
@@ -440,6 +441,8 @@ export const SICK_NOTES_REPORT = {
   employeeFilterPlaceholder: "Filter by email",
   empty: "No sick notes in this period.",
   download: "Download",
+  downloadFor: (email: string, start: string, end: string): string =>
+    `Download sick note for ${email}, ${start}\u2013${end}`,
   deletedOn: (date: string): string => `Deleted on ${date}`,
   columns: {
     employee: "Employee",

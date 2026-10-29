@@ -93,6 +93,14 @@ export default function OtherAuthorizedApproveTab() {
     });
   };
 
+  // A decision that was refused keeps `target` so the typed reason survives.
+  // But once a refetch no longer lists that request (decided elsewhere, or the
+  // list went empty), the target is stale: drop it, so a dialog for the old
+  // request cannot come back when new rows arrive.
+  if (target && !rows.some((r) => r.id === target.leave.id)) {
+    setTarget(null);
+  }
+
   if (rows.length === 0) {
     return (
       <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>{COPY.empty}</Typography>

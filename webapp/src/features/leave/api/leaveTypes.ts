@@ -409,7 +409,11 @@ const BALANCE_TRACKED_LOCATIONS = new Set(["France", "Spain"]);
 // leave-app's LeaveBalanceSummary, which only ever renders for France/Spain.
 export function quotaTrackedTypesForLocation(location: string | null | undefined): LeaveType[] {
   if (!location || !BALANCE_TRACKED_LOCATIONS.has(location)) return [];
-  return (LOCATION_LEAVE_TYPES[location] ?? []).map((e) => e.type);
+  // Only types with a policy field have a balance to show. France's
+  // Compassionate and Other Authorized are selectable on Apply but untracked.
+  return (LOCATION_LEAVE_TYPES[location] ?? [])
+    .map((e) => e.type)
+    .filter((t) => t in LEAVE_TYPE_POLICY_KEY);
 }
 
 // The Apply form's selectable leave types for a given location — matches

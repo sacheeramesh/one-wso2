@@ -17,7 +17,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const state = {
@@ -55,6 +55,8 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 }));
 
 const { default: SickNotesReportTab } = await import("./SickNotesReportTab");
+
+const DOWNLOAD_ANNA = "Download sick note for anna@wso2.com, 2026-10-05\u20132026-10-06";
 
 const live = {
   leaveId: 11,
@@ -114,16 +116,34 @@ describe("SickNotesReportTab", () => {
 
   it("offers Download for a live note and Deleted on for a deleted one", async () => {
     render(<SickNotesReportTab />);
-    expect(screen.getAllByRole("button", { name: "Download" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Download sick note for/ })).toHaveLength(1);
     expect(screen.getByText(/Deleted on 2026-10-20/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Download" }));
+    await userEvent.click(screen.getByRole("button", { name: DOWNLOAD_ANNA }));
     expect(download).toHaveBeenCalledWith(11, "tok");
+  });
+
+  it("names each Download for the employee and dates", () => {
+    render(<SickNotesReportTab />);
+    expect(screen.getByRole("button", { name: DOWNLOAD_ANNA })).toBeInTheDocument();
+  });
+
+  it("downloads once however fast it is clicked, and re-enables afterwards", async () => {
+    let finish!: () => void;
+    download.mockReturnValue(new Promise<void>((r) => (finish = r)));
+    render(<SickNotesReportTab />);
+    const btn = screen.getByRole("button", { name: DOWNLOAD_ANNA });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    expect(btn).toBeDisabled();
+    finish();
+    await waitFor(() => expect(btn).toBeEnabled());
   });
 
   it("shows the backend's message when a download fails", async () => {
     download.mockRejectedValue(new Error("Note was deleted."));
     render(<SickNotesReportTab />);
-    await userEvent.click(screen.getByRole("button", { name: "Download" }));
+    await userEvent.click(screen.getByRole("button", { name: DOWNLOAD_ANNA }));
     expect(showError).toHaveBeenCalledWith("Note was deleted.");
   });
 

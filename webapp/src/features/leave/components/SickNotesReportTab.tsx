@@ -84,11 +84,23 @@ export default function SickNotesReportTab() {
     return q ? all.filter((n) => n.email.toLowerCase().includes(q)) : all;
   }, [notes.data, email]);
 
+  // Leave ids whose download is under way. A second click while one runs would
+  // fetch the note twice and write a second audit row.
+  const [downloading, setDownloading] = useState<ReadonlySet<number>>(new Set());
+
   const download = async (leaveId: number) => {
+    if (downloading.has(leaveId)) return;
+    setDownloading((s) => new Set(s).add(leaveId));
     try {
       await downloadSickNote(leaveId, await getAccessToken());
     } catch (e) {
-      showError(e instanceof Error ? e.message : describeError(e));
+      showError(describeError(e));
+    } finally {
+      setDownloading((s) => {
+        const next = new Set(s);
+        next.delete(leaveId);
+        return next;
+      });
     }
   };
 
@@ -163,7 +175,13 @@ export default function SickNotesReportTab() {
                         {COPY.deletedOn(isoDay(n.deletedAt))}
                       </Typography>
                     ) : (
-                      <Button size="small" variant="outlined" onClick={() => void download(n.leaveId)}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={downloading.has(n.leaveId)}
+                        aria-label={COPY.downloadFor(n.email, isoDay(n.startDate), isoDay(n.endDate))}
+                        onClick={() => void download(n.leaveId)}
+                      >
                         {COPY.download}
                       </Button>
                     )}

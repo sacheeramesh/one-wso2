@@ -202,6 +202,33 @@ describe("OtherAuthorizedApproveTab", () => {
   });
 });
 
+describe("a refused decision followed by an emptied list", () => {
+  it("does not bring the old dialog back when new requests arrive", async () => {
+    state.fail = true;
+    const view = show(<OtherAuthorizedApproveTab />);
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, Approve" }));
+    // The refusal keeps the dialog open; the refetch then finds nothing pending.
+    state.leaves = [];
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <OtherAuthorizedApproveTab />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // A new request arrives, even one with the same id: no dialog.
+    state.leaves = [row];
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <OtherAuthorizedApproveTab />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("anna@wso2.com")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
 describe("OtherAuthorizedApprovalHistoryTab", () => {
   it("asks for decided requests and shows the reason on a rejected row", () => {
     state.leaves = [

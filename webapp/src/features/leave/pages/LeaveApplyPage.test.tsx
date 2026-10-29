@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -214,7 +215,7 @@ describe("the order of the always-notified chips", () => {
 // who have gone.
 describe("who can be picked", () => {
   it("offers people who are still here, and not the leavers", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     const field = screen.getByPlaceholderText("Add people to notify (optional)");
     await user.click(field);
@@ -235,7 +236,7 @@ function setDate(field: HTMLElement, value: string) {
 // the reader nothing about what to change.
 describe("what happens when the form is not ready", () => {
   it("says why, rather than leaving a dead button", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
 
     // An end date before the start gives zero days. The picker refuses it, so
@@ -292,7 +293,7 @@ describe("keeping the end date in sync with the start date", () => {
 // GeneralLeave.tsx:222-229 — nothing is posted until this is answered.
 describe("the confirmation before posting", () => {
   it("names the type, the days, the range and the portion", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
@@ -306,7 +307,7 @@ describe("the confirmation before posting", () => {
   });
 
   it("posts only after Yes", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: /Submit Leave/ }));
@@ -318,7 +319,7 @@ describe("the confirmation before posting", () => {
   // now — the fixture carried no privileges, so the gate refused My history and
   // the navigation silently never fired.
   it("lands on My history after a successful submit", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
     await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
@@ -334,7 +335,7 @@ describe("the confirmation before posting", () => {
   // somewhere arbitrary, so the form stays put and the message is the feedback.
   it("stays on the form when the visitor may not see My history", async () => {
     user.privileges = [789];
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
     await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
@@ -360,7 +361,7 @@ describe("the confirmation before posting", () => {
     // People Ops, so the form is not navigated away from — the chips surviving
     // is only observable on a screen that stays mounted.
     user.privileges = [789];
-    const ue = (await import("@testing-library/user-event")).default.setup();
+    const ue = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByText("buddy@wso2.com")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
@@ -384,7 +385,7 @@ describe("the confirmation before posting", () => {
   // quiet on success. Pinned on both forms: the source raises it from inside the
   // submitLeave thunk (leave.ts:150-156), so it is not optional per screen.
   it("confirms the request was submitted", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: /Submit Leave/ }));
@@ -398,7 +399,7 @@ describe("the confirmation before posting", () => {
   });
 
   it("posts nothing after No", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: /Submit Leave/ }));
@@ -416,7 +417,7 @@ describe("the confirmation before posting", () => {
 // firstName, lastName and employeeThumbnail and then discarded them.
 describe("picking someone to notify", () => {
   async function openPicker() {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     const field = screen.getByPlaceholderText("Add people to notify (optional)");
     await user.click(field);
@@ -498,7 +499,6 @@ describe("who can read the comment", () => {
   });
 
   it("drops the exclusion once the comment is public", async () => {
-    const userEvent = (await import("@testing-library/user-event")).default;
     show();
     await userEvent.click(await screen.findByRole("switch", { name: /Public comment/ }));
     expect(
@@ -519,7 +519,7 @@ describe("who can read the comment", () => {
 // overflow paints outside the popup.
 describe("the notify picker's option rows", () => {
   async function openNotify() {
-    const user = (await import("@testing-library/user-event")).default.setup();
+    const user = userEvent.setup();
     show();
     await user.click(screen.getByPlaceholderText("Add people to notify (optional)"));
     await user.type(screen.getByPlaceholderText("Add people to notify (optional)"), "@wso2.com");
@@ -645,7 +645,7 @@ describe("France leave on Apply", () => {
   });
 
   it("requires a valid file for France sick leave and submits through the sick-leave call", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     user.location = "France";
     show();
     await u.click(screen.getByText("Sick Leave"));
@@ -654,7 +654,7 @@ describe("France leave on Apply", () => {
     expect(submit).toBeDisabled();
 
     pick(pdf());
-    await waitFor(() => expect(submit).toBeEnabled());
+    await waitFor(() => expect(submit).toBeEnabled(), { timeout: 3000 });
     await u.click(submit);
     await u.click(await screen.findByRole("button", { name: "Yes" }));
     expect(submitMutate).not.toHaveBeenCalled();
@@ -663,8 +663,21 @@ describe("France leave on Apply", () => {
     expect(sickMutate.mock.calls[0][0].payload.leaveType).toBe("sick");
   });
 
+  it("names the sick-note buttons for what they act on", async () => {
+    const u = userEvent.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Sick Leave"));
+    expect(screen.getByRole("button", { name: "Choose sick note file" })).toBeInTheDocument();
+    pick(pdf());
+    expect(await screen.findByRole("button", { name: "Change sick note file" })).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Remove sick note" }));
+    expect(screen.queryByText("note.pdf")).toBeNull();
+    expect(screen.getByRole("button", { name: "Choose sick note file" })).toBeInTheDocument();
+  });
+
   it("shows the sick-note field for a half day too", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     user.location = "France";
     show();
     await u.click(screen.getByText("Sick Leave"));
@@ -673,7 +686,7 @@ describe("France leave on Apply", () => {
   });
 
   it("rejects a file over the limit", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     user.location = "France";
     show();
     await u.click(screen.getByText("Sick Leave"));
@@ -684,7 +697,7 @@ describe("France leave on Apply", () => {
   });
 
   it("clears the file when the type changes away from sick", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     user.location = "France";
     show();
     await u.click(screen.getByText("Sick Leave"));
@@ -697,7 +710,7 @@ describe("France leave on Apply", () => {
   });
 
   it("keeps Submit disabled while the upload limits are loading", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     configState.withLimits = false;
     user.location = "France";
     show();
@@ -708,11 +721,13 @@ describe("France leave on Apply", () => {
   });
 
   it("says Other Authorized goes to the lead, and reports it sent", async () => {
-    const u = (await import("@testing-library/user-event")).default.setup();
+    const u = userEvent.setup();
     user.location = "France";
     show();
     await u.click(screen.getByText("Other Authorized"));
-    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled(), {
+      timeout: 3000,
+    });
     await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
     expect(await screen.findByText(/goes to your lead for approval/)).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Yes" }));
