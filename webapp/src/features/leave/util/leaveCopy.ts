@@ -90,6 +90,34 @@ export const SICK_NOTE_COPY = {
 } as const;
 export const SUBMIT_FAILED_FALLBACK = "Failed to submit leave request. Please try again.";
 
+/** Other Authorized approvals, for leads. */
+export const OTHER_AUTHORIZED_APPROVE = {
+  empty: "No pending Other Authorized requests.",
+  historyEmpty: "No Other Authorized decisions yet.",
+  columns: {
+    employee: "Employee",
+    startDate: "Start",
+    endDate: "End",
+    dayCount: "Days",
+    comment: "Comment",
+    waiting: "Waiting",
+    status: "Status",
+    reason: "Reason",
+    decision: "Decision",
+  },
+  approve: "Approve",
+  reject: "Reject",
+  working: "Working…",
+  rejectDialog: {
+    title: "Reject this request?",
+    body: "The reason is emailed to the employee.",
+    label: "Reason for rejecting",
+    cancel: "Cancel",
+    confirm: "Reject",
+    counter: (used: number, max: number) => `${used} / ${max}`,
+  },
+} as const;
+
 /** `config/constant.ts:17-43`. */
 export const SnackMessage = {
   success: {

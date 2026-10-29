@@ -114,14 +114,25 @@ function show(initial = "/me/leave") {
               }
             />
           </Route>
-          <Route
-            path="approvals"
-            element={
-              <LeaveKindRoute gateId="leave-approve">
-                <Here />
-              </LeaveKindRoute>
-            }
-          />
+          <Route path="approvals">
+            <Route index element={<LeaveTabIndex segment="approvals" />} />
+            <Route
+              path="sabbatical"
+              element={
+                <LeaveKindRoute gateId="leave-approve">
+                  <Here />
+                </LeaveKindRoute>
+              }
+            />
+            <Route
+              path="other-authorized"
+              element={
+                <LeaveKindRoute gateId="leave-approve">
+                  <Here />
+                </LeaveKindRoute>
+              }
+            />
+          </Route>
           <Route path="reports">
             <Route index element={<LeaveTabIndex segment="reports" />} />
             <Route
@@ -190,10 +201,10 @@ describe("while the gate is still resolving", () => {
   it("leaves a deep-linked lead on the URL they asked for", async () => {
     state.isResolving = true;
     state.allow = new Set();
-    show("/me/leave/approvals");
+    show("/me/leave/approvals/sabbatical");
 
     // Still there: not redirected, and not told they are not allowed.
-    expect(await screen.findByTestId("url")).toHaveTextContent("/me/leave/approvals");
+    expect(await screen.findByTestId("url")).toHaveTextContent("/me/leave/approvals/sabbatical");
     expect(screen.queryByText(/isn't available for your role/)).not.toBeInTheDocument();
   });
 
@@ -206,8 +217,14 @@ describe("while the gate is still resolving", () => {
 
   it("resolves into the tab once the privileges arrive", async () => {
     state.allow = new Set(["leave-approve"]);
+    show("/me/leave/approvals/sabbatical");
+    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/approvals/sabbatical");
+  });
+
+  it("the old approvals URL still lands on sabbatical", async () => {
+    state.allow = new Set(["leave-approve"]);
     show("/me/leave/approvals");
-    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/approvals");
+    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/approvals/sabbatical");
   });
 });
 
@@ -332,13 +349,17 @@ describe("the kind toggle", () => {
     expect(screen.queryByRole("link", { name: "Sabbatical" })).not.toBeInTheDocument();
   });
 
-  // General leave has no approval step for anybody, so Approvals never offers
-  // a choice — the subtitle carries that instead.
-  it("is never drawn on Approvals", async () => {
-    state.allow = new Set(["leave-apply", "leave-sabbatical-own", "leave-approve"]);
-    show("/me/leave/approvals");
-    await screen.findByRole("tab", { name: "Approvals" });
-    expect(screen.queryByRole("group", { name: "Kind of leave" })).not.toBeInTheDocument();
+  it("offers Sabbatical and Other Authorized on Approvals to a lead", async () => {
+    state.allow = new Set(["leave-approve"]);
+    show("/me/leave/approvals/sabbatical");
+    expect(await screen.findByRole("link", { name: "Sabbatical" })).toHaveAttribute(
+      "href",
+      "/me/leave/approvals/sabbatical",
+    );
+    expect(screen.getByRole("link", { name: "Other Authorized" })).toHaveAttribute(
+      "href",
+      "/me/leave/approvals/other-authorized",
+    );
   });
 
   it("marks the kind the URL names", async () => {
