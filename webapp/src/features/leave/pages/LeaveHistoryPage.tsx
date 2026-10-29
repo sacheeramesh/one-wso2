@@ -35,6 +35,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { describeError } from "../util/leaveError";
+import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { StatusChip } from "../components/LeaveChips";
 import {
@@ -53,15 +54,25 @@ import { useLeaveUserInfo, useLeaves } from "../api/useLeaveData";
 import { useCancelLeave } from "../api/useLeaveMutations";
 import {
   dayNumber,
-  daysAgo,
   endOfYearIso,
   formatNice,
   monthAbbr,
   parseIso,
   startOfYearIso,
 } from "../util/leaveDates";
-import { CANCEL_WINDOW_DAYS } from "../util/franceLeave";
-import { CANCEL_CONFIRMATION, SnackMessage, noLeaveHistoryFor } from "../util/leaveCopy";
+import {
+  COUNTED_STATUSES,
+  HISTORY_STATUSES,
+  canCancelLeave,
+  canDownloadSickNote,
+} from "../util/franceLeave";
+import { downloadSickNote } from "../util/sickNoteDownload";
+import {
+  CANCEL_CONFIRMATION,
+  HISTORY_CARD_COPY,
+  SnackMessage,
+  noLeaveHistoryFor,
+} from "../util/leaveCopy";
 
 // The same wording and the same chip the lead report uses for its own day
 // total (LeaveReportsPage.tsx:306-311), so the two screens agree.
@@ -90,8 +101,8 @@ type HistoryGrouping = "type" | "status";
 
 const SABBATICAL_CATEGORY: LeaveType[] = ["sabbatical"];
 
-// Approved before pending, the order the query asks for them in.
-const STATUS_ORDER: LeaveStatus[] = ["APPROVED", "PENDING"];
+// The counted statuses first, then the two that end a request without leave.
+const STATUS_ORDER: LeaveStatus[] = ["APPROVED", "PENDING", "REJECTED", "CANCELLED"];
 
 export function SabbaticalHistoryTab() {
   return <HistoryBody leaveCategory={SABBATICAL_CATEGORY} groupBy="status" />;
@@ -119,7 +130,7 @@ export function HistoryBody({
       email: workEmail,
       startDate: startOfYearIso(year),
       endDate: endOfYearIso(year),
-      statuses: ["APPROVED", "PENDING"],
+      statuses: HISTORY_STATUSES,
       orderBy: "DESC",
       leaveCategory,
     },
@@ -150,6 +161,9 @@ export function HistoryBody({
   const summary = useMemo(() => {
     const days = new Map<string, number>();
     for (const lv of leaves.data?.leaves ?? []) {
+      // By type, rejected and cancelled leave is not leave taken, so it adds to
+      // no chip. By status it gets its own chip, and the total below skips it.
+      if (groupBy === "type" && !COUNTED_STATUSES.includes(lv.status ?? "PENDING")) continue;
       // A row with no status counts as pending, the same assumption StatusChip
       // makes on the card itself (LeaveChips.tsx:45-48).
       const key = groupBy === "status" ? (lv.status ?? "PENDING") : (lv.leaveType ?? "");
@@ -183,11 +197,17 @@ export function HistoryBody({
       }))
       .sort((a, b) => (rank.get(a.key) ?? Infinity) - (rank.get(b.key) ?? Infinity));
     // Lieu is shown but not summed. Grouping by status cannot produce an
-    // uncounted key, so the same filter is a no-op on the Sabbatical tab.
+    // uncounted type key, so that filter is a no-op on the Sabbatical tab.
     const uncounted = new Set<string>(UNCOUNTED_LEAVE_TYPES);
     return {
       groups,
-      total: groups.reduce((sum, g) => (uncounted.has(g.key) ? sum : sum + g.total), 0),
+      total: groups.reduce(
+        (sum, g) =>
+          uncounted.has(g.key) || (groupBy === "status" && !COUNTED_STATUSES.includes(g.key as LeaveStatus))
+            ? sum
+            : sum + g.total,
+        0,
+      ),
       excluded: groups.filter((g) => uncounted.has(g.key)).map((g) => g.label),
     };
   }, [leaves.data, leaveCategory, groupBy]);
@@ -265,7 +285,24 @@ function LeaveCard({ leave, onCancel }: { leave: DatabaseLeave; onCancel: () => 
   const t = (leave.leaveType as LeaveType | null) ?? null;
   const typeLabel = t && t in LEAVE_TYPE_LABEL ? LEAVE_TYPE_LABEL[t] : (leave.leaveType ?? "Leave");
   const TypeIcon = t && t in LEAVE_TYPE_ICON ? LEAVE_TYPE_ICON[t] : LEAVE_TYPE_ICON_FALLBACK;
-  const cancellable = daysAgo(leave.startDate) <= CANCEL_WINDOW_DAYS;
+  const cancellable = canCancelLeave(leave.status, leave.startDate, new Date());
+  // Rejected and cancelled leave has no Cancel button at all; the 30-day
+  // tooltip only explains a disabled button on a leave that could be cancelled.
+  const cancelOffered = leave.status === "APPROVED" || leave.status === "PENDING";
+  const { showError } = useNotifications();
+  const getAccessToken = useAccessToken();
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadSickNote(leave.id, await getAccessToken());
+    } catch (err) {
+      showError(describeError(err));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Card variant="outlined" sx={{ p: 1.75, display: "flex", gap: 1.5, alignItems: "flex-start" }}>
@@ -303,9 +340,25 @@ function LeaveCard({ leave, onCancel }: { leave: DatabaseLeave; onCancel: () => 
         <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontVariantNumeric: "tabular-nums" }}>
           {leave.numberOfDays ?? "—"} day{leave.numberOfDays === 1 ? "" : "s"}
         </Typography>
+        {leave.status === "REJECTED" && leave.rejectionReason && (
+          <Typography sx={{ fontSize: 12, color: "error.main", mt: 0.5, overflowWrap: "anywhere" }}>
+            {HISTORY_CARD_COPY.rejectionReason(leave.rejectionReason)}
+          </Typography>
+        )}
+        {leave.leaveType === "sick" && canDownloadSickNote(leave) && (
+          <Button size="small" onClick={handleDownload} disabled={downloading} sx={{ mt: 0.5, px: 0, minWidth: 0 }}>
+            {HISTORY_CARD_COPY.downloadSickNote}
+          </Button>
+        )}
+        {leave.leaveType === "sick" && leave.sickNoteDeletedOn && (
+          <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.5 }}>
+            {HISTORY_CARD_COPY.sickNoteDeleted(formatNice(leave.sickNoteDeletedOn))}
+          </Typography>
+        )}
       </Box>
 
-      <Tooltip title={cancellable ? "Cancel this leave" : "Past the 30-day cancellation window"}>
+      {cancelOffered && (
+      <Tooltip title={cancellable ? "Cancel this leave" : HISTORY_CARD_COPY.cancelPastWindow}>
         <span>
           <IconButton
             size="small"
@@ -326,6 +379,7 @@ function LeaveCard({ leave, onCancel }: { leave: DatabaseLeave; onCancel: () => 
           </IconButton>
         </span>
       </Tooltip>
+      )}
     </Card>
   );
 }

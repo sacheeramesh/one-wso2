@@ -50,6 +50,14 @@ export const CANCEL_CONFIRMATION = {
   dismiss: "No, Keep It",
 } as const;
 
+/** What My history shows on a card for rejection reasons and sick notes. */
+export const HISTORY_CARD_COPY = {
+  rejectionReason: (reason: string) => `Reason: ${reason}`,
+  downloadSickNote: "Download sick note",
+  sickNoteDeleted: (date: string) => `Sick note deleted on ${date}`,
+  cancelPastWindow: "Past the 30-day cancellation window",
+} as const;
+
 /** `LeaveHistory.tsx:151`. */
 export const noLeaveHistoryFor = (year: number) => `No leave history available for ${year}.`;
 
