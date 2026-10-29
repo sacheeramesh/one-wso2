@@ -60,11 +60,8 @@ import {
   parseIso,
   startOfYearIso,
 } from "../util/leaveDates";
+import { CANCEL_WINDOW_DAYS } from "../util/franceLeave";
 import { CANCEL_CONFIRMATION, SnackMessage, noLeaveHistoryFor } from "../util/leaveCopy";
-
-// A leave whose start is more than this many days in the past can't be
-// cancelled from here (matches leave-app's allowedDaysToCancelLeave default).
-const CANCEL_WINDOW_DAYS = 30;
 
 // The same wording and the same chip the lead report uses for its own day
 // total (LeaveReportsPage.tsx:306-311), so the two screens agree.

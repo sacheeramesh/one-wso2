@@ -233,6 +233,8 @@ export const GENERIC_LABEL: Record<LeaveType, string> = {
   sabbatical: LEAVE_LABEL.SABBATICAL,
   conges_payes: LEAVE_LABEL.CONGES_PAYES,
   rtt: LEAVE_LABEL.RTT,
+  compassionate: "Compassionate",
+  other_authorized: "Other Authorized",
 };
 
 // ---------------------------------------------------------------------------
