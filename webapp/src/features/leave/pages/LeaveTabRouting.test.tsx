@@ -151,6 +151,14 @@ function show(initial = "/me/leave") {
                 </LeaveKindRoute>
               }
             />
+            <Route
+              path="sick-notes"
+              element={
+                <LeaveKindRoute gateId="leave-sick-notes">
+                  <Here />
+                </LeaveKindRoute>
+              }
+            />
           </Route>
         </Route>
       </Routes>
@@ -420,5 +428,21 @@ describe("reaching a screen by its URL", () => {
     state.allow = new Set();
     show("/me/leave/approvals");
     expect(await screen.findByText(/isn't available for your role/)).toBeInTheDocument();
+  });
+});
+
+// Sick notes are confidential: People Ops with the sick-note role only.
+describe("the sick notes report", () => {
+  it("a sick-note reader lands on the sick notes report", async () => {
+    state.allow = new Set(["leave-sick-notes"]);
+    show();
+    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/reports/sick-notes");
+  });
+
+  it("a lead without the role cannot open it by URL", async () => {
+    state.allow = new Set(["leave-apply", "leave-approve", "leave-reports-general", "leave-reports-sabbatical"]);
+    show("/me/leave/reports/sick-notes");
+    expect(await screen.findByTestId("path")).not.toHaveTextContent("sick-notes");
+    expect(screen.getByTestId("url")).not.toHaveTextContent("sick-notes");
   });
 });

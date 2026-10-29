@@ -433,3 +433,20 @@ export const SABBATICAL = {
   history: { title: "Sabbatical Leave History" }, // SabbaticalLeaveHistory.tsx:25
   report: { title: "Sabbatical Leave Report" }, // AdminSabbaticalTab.tsx:83
 } as const;
+
+/** The Sick notes report (People Ops, privilege 321). */
+export const SICK_NOTES_REPORT = {
+  employeeFilter: "Employee email",
+  employeeFilterPlaceholder: "Filter by email",
+  empty: "No sick notes in this period.",
+  download: "Download",
+  deletedOn: (date: string): string => `Deleted on ${date}`,
+  columns: {
+    employee: "Employee",
+    dates: "Dates",
+    days: "Days",
+    status: "Status",
+    uploaded: "Uploaded",
+    note: "Note",
+  },
+} as const;

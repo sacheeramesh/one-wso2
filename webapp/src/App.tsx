@@ -170,6 +170,9 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
+const SickNotesReportTab = lazy(
+  () => import("@features/leave/components/SickNotesReportTab"),
+);
 // Sales Library: loaded when its page is opened.
 const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
@@ -399,6 +402,16 @@ export default function App() {
                   <LeaveKindRoute gateId="leave-reports-sabbatical">
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
                       <SabbaticalReportTab />
+                    </Suspense>
+                  </LeaveKindRoute>
+                }
+              />
+              <Route
+                path="sick-notes"
+                element={
+                  <LeaveKindRoute gateId="leave-sick-notes">
+                    <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
+                      <SickNotesReportTab />
                     </Suspense>
                   </LeaveKindRoute>
                 }

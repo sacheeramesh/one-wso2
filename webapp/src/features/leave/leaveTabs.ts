@@ -44,6 +44,8 @@ export type LeaveGateId =
   | "leave-history"
   | "leave-reports-general"
   | "leave-reports-sabbatical"
+  /** People Ops holding the sick-note role (privilege 321). Nobody else. */
+  | "leave-sick-notes"
   | "leave-approve"
   /** May take a sabbatical at all: employee or lead, never an intern. */
   | "leave-sabbatical-own";
@@ -51,7 +53,7 @@ export type LeaveGateId =
 /** The rail entry's id. One now, where there were two. */
 export type LeaveItemId = "leave-home";
 
-export type LeaveKind = "general" | "sabbatical" | "other-authorized";
+export type LeaveKind = "general" | "sabbatical" | "other-authorized" | "sick-notes";
 
 export interface LeaveKindDef {
   kind: LeaveKind;
@@ -179,6 +181,14 @@ export const LEAVE_TABS: readonly LeaveTabDef[] = [
         // Granted independently of the general report.
         gateId: "leave-reports-sabbatical",
         subtitle: "Sabbaticals across your team.",
+      },
+      {
+        kind: "sick-notes",
+        label: "Sick notes",
+        // Privilege 321 alone: sick notes are confidential, so neither leads
+        // nor the other report roles imply it.
+        gateId: "leave-sick-notes",
+        subtitle: "France sick leave notes. Every download is recorded.",
       },
     ],
   },
