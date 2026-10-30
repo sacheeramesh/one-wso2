@@ -49,7 +49,7 @@ import { HeadCell } from "./SabbaticalTable";
 
 // Pending Other Authorized requests from the lead's own reports. Approving
 // sends no reason; rejecting needs one, which the backend emails to the
-// applicant. Mirrors the standalone app's OtherAuthorizedApproveTab.
+// applicant.
 export default function OtherAuthorizedApproveTab() {
   // The request being decided and how. Kept open until the call succeeds, so a
   // refused decision leaves the lead's typed reason where it was.

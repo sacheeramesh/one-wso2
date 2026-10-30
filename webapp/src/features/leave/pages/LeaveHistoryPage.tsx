@@ -151,7 +151,7 @@ export function HistoryBody({
   //
   // Pending rows are possible on both tabs: sabbaticals and Other Authorized
   // are created pending until a lead decides, while the other general types are
-  // created already approved (service.bal:539). Pending days count toward the
+  // created already approved by the backend. Pending days count toward the
   // totals; rejected and cancelled days never do.
   //
   // Ordered by `leaveCategory` rather than by arrival, so the chips keep the
