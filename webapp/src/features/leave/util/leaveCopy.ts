@@ -77,6 +77,12 @@ export const SUBMIT_SUCCESS = "Leave request submitted successfully!";
 /** Other Authorized is approved by the employee's lead, not auto-approved. */
 export const OTHER_AUTHORIZED_SUBMIT_SUCCESS = "Your request has been sent to your lead for approval.";
 export const OTHER_AUTHORIZED_CONFIRMATION_NOTE = "This request goes to your lead for approval.";
+/** The comment box while Other Authorized is picked: a required, private reason. */
+export const OTHER_AUTHORIZED_REASON = {
+  label: "Reason",
+  placeholder: "Tell your lead why you need this leave (required)…",
+  note: "Your reason goes to your lead for approval and is never made public.",
+} as const;
 
 /** The sick-note field on Apply (France sick leave only). */
 export const SICK_NOTE_COPY = {

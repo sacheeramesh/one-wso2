@@ -725,16 +725,63 @@ describe("France leave on Apply", () => {
     user.location = "France";
     show();
     await u.click(screen.getByText("Other Authorized"));
+    await u.type(screen.getByPlaceholderText(/Tell your lead why/), "Jury service");
     await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled(), {
       timeout: 3000,
     });
     await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
-    expect(await screen.findByText(/goes to your lead for approval/)).toBeInTheDocument();
+    expect(await screen.findByText(/This request goes to your lead for approval/)).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Yes" }));
     await waitFor(() => expect(submitMutate).toHaveBeenCalled());
     submitMutate.mock.calls[0][1].onSuccess();
     expect(
       await screen.findByText("Your request has been sent to your lead for approval."),
     ).toBeInTheDocument();
+  });
+
+  it("needs a reason for Other Authorized, and keeps it private", async () => {
+    const u = userEvent.setup();
+    user.location = "France";
+    show();
+    // Made public for another type first: picking Other Authorized must undo that.
+    await u.click(await screen.findByRole("switch", { name: /Public comment/ }));
+    await u.click(screen.getByText("Other Authorized"));
+    expect(screen.queryByRole("switch", { name: /Public comment/ })).toBeNull();
+    expect(screen.getByText(/never made public/)).toBeInTheDocument();
+
+    // The button reads "Validating…" until the dates are checked, so it is
+    // looked up by name each time rather than held.
+    const submit = () => screen.getByRole("button", { name: /Submit Leave/ });
+    const reason = screen.getByPlaceholderText(/Tell your lead why/);
+    await u.type(reason, "Jury service");
+    await waitFor(() => expect(submit()).toBeEnabled(), { timeout: 3000 });
+
+    await u.clear(reason);
+    await u.type(reason, "   ");
+    expect(submit()).toBeDisabled();
+
+    await u.clear(reason);
+    await u.type(reason, "Jury service");
+    expect(submit()).toBeEnabled();
+    await u.click(submit());
+    await u.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(submitMutate).toHaveBeenCalled());
+    expect(submitMutate.mock.calls[0][0]).toMatchObject({
+      leaveType: "other_authorized",
+      comment: "Jury service",
+      isPublicComment: false,
+    });
+  });
+
+  it("keeps the comment optional for Compassionate", async () => {
+    const u = userEvent.setup();
+    user.location = "France";
+    show();
+    await u.click(screen.getByText("Compassionate"));
+    expect(screen.getByPlaceholderText("Add a comment (optional)…")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /Public comment/ })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled(), {
+      timeout: 3000,
+    });
   });
 });

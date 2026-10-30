@@ -43,7 +43,7 @@ import EmployeeAvatar from "@features/my/my-team/components/EmployeeAvatar";
 import LeaveBalanceSummary from "../components/LeaveBalanceSummary";
 import LeaveDateField from "../components/LeaveDateField";
 import SickNoteField from "../components/SickNoteField";
-import { needsLeadApproval, needsSickNote, sickNoteProblem } from "../util/franceLeave";
+import { needsLeadApproval, needsReason, needsSickNote, sickNoteProblem } from "../util/franceLeave";
 import {
   LEAVE_TYPE_ICON,
   LEAVE_TYPE_POLICY_KEY,
@@ -71,6 +71,7 @@ import {
   leaveTypeLabel,
   GENERIC_LABEL,
   OTHER_AUTHORIZED_CONFIRMATION_NOTE,
+  OTHER_AUTHORIZED_REASON,
   OTHER_AUTHORIZED_SUBMIT_SUCCESS,
   PUBLIC_COMMENT_LABEL,
   PUBLIC_COMMENT_NOTE,
@@ -136,6 +137,14 @@ function ApplyForm() {
   const sickNoteReady = !sickNoteRequired || (limitsLoaded && sickNote !== null && sickNoteIssue === "");
   // France sick leave posts through the multipart call; everything else is unchanged.
   const submit = sickNoteRequired ? submitSick : submitPlain;
+
+  // Other Authorized: the lead decides on the reason, so it is required and
+  // never public. Picking the type turns a public comment back to private.
+  const reasonRequired = needsReason(leaveType);
+  const reasonMissing = reasonRequired && comment.trim() === "";
+  useEffect(() => {
+    if (reasonRequired) setIsPublic(false);
+  }, [reasonRequired]);
 
   // Which leave types this employee can pick, and (for the balance panel)
   // which of those are quota-tracked — both location-gated, matching
@@ -236,7 +245,8 @@ function ApplyForm() {
     // Mandatory recipients (lead + People Ops) come from appConfig; don't
     // let a submit go out without them if appConfig hasn't resolved yet.
     Boolean(appConfig.data) &&
-    sickNoteReady;
+    sickNoteReady &&
+    !reasonMissing;
 
   // Anyone still on the books, minus the leavers. The backend is asked for
   // Active + Marked leaver + Left (it needs Left to resolve historical rows),
@@ -354,7 +364,7 @@ function ApplyForm() {
       leaveType,
       emailRecipients,
       comment,
-      isPublicComment: isPublic,
+      isPublicComment: reasonRequired ? false : isPublic,
     };
     const options = {
       onSuccess: () => {
@@ -629,34 +639,38 @@ function ApplyForm() {
         </Typography>
 
         <Box sx={{ mt: 2 }}>
-          <FieldLabel>Comment</FieldLabel>
+          <FieldLabel>{reasonRequired ? OTHER_AUTHORIZED_REASON.label : "Comment"}</FieldLabel>
           <TextField
             fullWidth
             size="small"
             multiline
             minRows={2}
+            required={reasonRequired}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Add a comment (optional)…"
+            placeholder={reasonRequired ? OTHER_AUTHORIZED_REASON.placeholder : "Add a comment (optional)…"}
           />
           {/* FormControlLabel, not a loose Switch beside a Typography — the
               source pairs them (AdditionalComment.tsx:52-65) and that is what
-              gives the control an accessible name. */}
-          <FormControlLabel
-            sx={{ mt: 1 }}
-            control={
-              <Switch
-                size="small"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-              />
-            }
-            label={
-              <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-                {PUBLIC_COMMENT_LABEL}
-              </Typography>
-            }
-          />
+              gives the control an accessible name. A required reason is never
+              public, so it has no switch. */}
+          {!reasonRequired && (
+            <FormControlLabel
+              sx={{ mt: 1 }}
+              control={
+                <Switch
+                  size="small"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                />
+              }
+              label={
+                <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+                  {PUBLIC_COMMENT_LABEL}
+                </Typography>
+              }
+            />
+          )}
         </Box>
       </Card>
 
@@ -666,7 +680,11 @@ function ApplyForm() {
         {/* Who can read the comment — GeneralLeave.tsx:345-349 puts this next
             to Submit, where it is read just before sending. */}
         <Typography sx={{ fontSize: 11, color: "text.disabled", textAlign: "right" }}>
-          {isPublic ? PUBLIC_COMMENT_NOTE.public : PUBLIC_COMMENT_NOTE.private}
+          {reasonRequired
+            ? OTHER_AUTHORIZED_REASON.note
+            : isPublic
+              ? PUBLIC_COMMENT_NOTE.public
+              : PUBLIC_COMMENT_NOTE.private}
         </Typography>
         <Button
           variant="contained"

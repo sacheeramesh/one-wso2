@@ -23,6 +23,7 @@ import {
   canCancelLeave,
   canDownloadSickNote,
   needsLeadApproval,
+  needsReason,
   needsSickNote,
   rejectionReasonProblem,
   sickNoteProblem,
@@ -120,6 +121,14 @@ describe("needsLeadApproval", () => {
       "sabbatical",
     ];
     for (const type of others) expect(needsLeadApproval(type)).toBe(false);
+  });
+});
+
+describe("needsReason", () => {
+  it("applies only to other authorized leave", () => {
+    expect(needsReason("other_authorized")).toBe(true);
+    const others: LeaveType[] = ["casual", "sick", "compassionate", "conges_payes", "rtt", "sabbatical"];
+    for (const type of others) expect(needsReason(type)).toBe(false);
   });
 });
 

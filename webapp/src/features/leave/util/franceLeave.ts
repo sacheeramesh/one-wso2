@@ -47,6 +47,14 @@ export function needsLeadApproval(leaveType: LeaveType): boolean {
   return leaveType === "other_authorized";
 }
 
+/**
+ * Other Authorized leave needs a reason, because the lead decides on it. The
+ * backend refuses a blank one and always keeps it private.
+ */
+export function needsReason(leaveType: LeaveType): boolean {
+  return leaveType === "other_authorized";
+}
+
 /** Returns a message describing why a sick note file is not acceptable, or "" when it is. */
 export function sickNoteProblem(file: File, maxBytes: number, contentTypes: string[]): string {
   if (file.size === 0) return "This file is empty.";
