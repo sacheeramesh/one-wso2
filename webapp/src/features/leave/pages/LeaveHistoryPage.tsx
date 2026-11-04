@@ -136,6 +136,25 @@ export function HistoryBody({
     },
     Boolean(workEmail),
   );
+  // Leave can be booked into a later year (a sabbatical often is), so the year
+  // selector runs to the last year any of it reaches, not just to this one.
+  const laterLeaves = useLeaves(
+    {
+      email: workEmail,
+      startDate: startOfYearIso(currentYear + 1),
+      statuses: HISTORY_STATUSES,
+      leaveCategory,
+    },
+    Boolean(workEmail),
+  );
+  const lastYear = useMemo(() => {
+    let last = currentYear;
+    for (const lv of laterLeaves.data?.leaves ?? []) {
+      const endYear = parseIso(lv.endDate)?.getFullYear() ?? 0;
+      if (endYear > last) last = endYear;
+    }
+    return last;
+  }, [laterLeaves.data, currentYear]);
 
   // Days per leave type across the cards below, plus their sum.
   //
@@ -214,9 +233,9 @@ export function HistoryBody({
   const years = useMemo(() => {
     const startYear = parseIso(userInfo.data?.employmentStartDate)?.getFullYear() ?? currentYear;
     const out: number[] = [];
-    for (let y = currentYear; y >= startYear; y--) out.push(y);
+    for (let y = lastYear; y >= startYear; y--) out.push(y);
     return out.length ? out : [currentYear];
-  }, [userInfo.data?.employmentStartDate, currentYear]);
+  }, [userInfo.data?.employmentStartDate, currentYear, lastYear]);
 
   return (
     <Box>

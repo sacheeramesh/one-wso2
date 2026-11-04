@@ -18,7 +18,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HISTORY_STATUSES } from "../util/franceLeave";
 
-const state = { leaves: [] as Record<string, unknown>[] };
+// `leaves` answers the selected year; `later` answers the request for leave
+// from next year on, the one with no end date.
+const state = { leaves: [] as Record<string, unknown>[], later: [] as Record<string, unknown>[] };
 const filters: Record<string, unknown>[] = [];
 const showError = vi.fn();
 const downloadSickNote = vi.fn();
@@ -31,7 +33,7 @@ vi.mock("../api/useLeaveData", () => ({
   useLeaves: (filter: Record<string, unknown>) => {
     filters.push(filter);
     return {
-      data: { leaves: state.leaves },
+      data: { leaves: filter.endDate ? state.leaves : state.later },
       isLoading: false,
       isError: false,
       error: null,
@@ -73,6 +75,7 @@ const leave = (over: Record<string, unknown>) => ({
 
 beforeEach(() => {
   state.leaves = [];
+  state.later = [];
   filters.length = 0;
   showError.mockReset();
   downloadSickNote.mockReset();
@@ -82,8 +85,31 @@ describe("My history", () => {
   it("asks for every history status on both tabs", () => {
     render(<GeneralHistoryTab />);
     render(<SabbaticalHistoryTab />);
-    expect(filters).toHaveLength(2);
+    // Each tab asks for its year, and for leave from next year on.
+    expect(filters).toHaveLength(4);
     for (const f of filters) expect(f.statuses).toEqual(HISTORY_STATUSES);
+  });
+
+  it("offers the years a leave booked ahead reaches, on that leave's tab", () => {
+    const next = today.getFullYear() + 1;
+    state.later = [leave({ leaveType: "sabbatical", startDate: `${next}-11-02`, endDate: `${next + 1}-01-15` })];
+    render(<SabbaticalHistoryTab />);
+
+    const later = filters.find((f) => f.endDate === undefined);
+    expect(later?.startDate).toBe(`${next}-01-01`);
+    expect(later?.leaveCategory).toEqual(["sabbatical"]);
+
+    // It still opens on this year.
+    expect(screen.getByRole("combobox")).toHaveTextContent(String(today.getFullYear()));
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    const years = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(years.slice(0, 3)).toEqual([String(next + 1), String(next), String(today.getFullYear())]);
+  });
+
+  it("ends the years at this one when nothing is booked ahead", () => {
+    render(<GeneralHistoryTab />);
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option")[0]).toHaveTextContent(String(today.getFullYear()));
   });
 
   it("shows the reason on a rejected card only, and no Cancel on rejected or cancelled", () => {
